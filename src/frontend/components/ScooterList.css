@@ -1,0 +1,125 @@
+.scooter-list-section {
+  padding: 1rem;
+}
+
+.scooter-list-section h2 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.scooter-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.scooter-card-wrapper {
+  margin: 0;
+}
+
+.scooter-card {
+  border: 1px solid #d4d4d8;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.scooter-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.scooter-card-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.status-chip {
+  display: inline-block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+}
+
+.status-available {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-in_use,
+.status-maintenance,
+.status-offline {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.scooter-location {
+  margin: 0 0 1rem;
+}
+
+.pricing-section h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pricing-table th,
+.pricing-table td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #e4e4e7;
+  font-size: 0.95rem;
+}
+
+.retry-button {
+  margin-top: 0.5rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.retry-button:hover {
+  background: #f4f4f5;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 640px) {
+  .scooter-list-section {
+    padding: 1.25rem;
+  }
+
+  .scooter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .scooter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
