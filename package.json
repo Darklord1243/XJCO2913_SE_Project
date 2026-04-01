@@ -3,5 +3,8 @@
   "private": true,
   "scripts": {
     "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1"
   }
 }
