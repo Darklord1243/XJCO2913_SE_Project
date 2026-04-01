@@ -1,5 +1,14 @@
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  password_salt TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS scooters (
   scooter_id TEXT PRIMARY KEY,
   status TEXT NOT NULL CHECK (

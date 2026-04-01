@@ -1,0 +1,101 @@
+const express = require('express');
+const {
+  createSessionToken,
+  hashPassword,
+  toPublicUser,
+  validateLoginInput,
+  validateRegistrationInput,
+  verifyPassword,
+} = require('../auth-service');
+const { createUser, findUserByEmail } = require('../database');
+
+const router = express.Router();
+
+router.post('/register', async (req, res) => {
+  const validation = validateRegistrationInput(req.body || {});
+
+  if (!validation.ok) {
+    return res.status(400).json({
+      success: false,
+      message: validation.message,
+    });
+  }
+
+  try {
+    const { email, fullName, password } = validation.value;
+    const existingUser = await findUserByEmail(email);
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email already exists.',
+      });
+    }
+
+    const { passwordHash, passwordSalt } = hashPassword(password);
+    const user = await createUser({
+      email,
+      fullName,
+      passwordHash,
+      passwordSalt,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Account created successfully.',
+      data: {
+        token: createSessionToken(user),
+        user: toPublicUser(user),
+      },
+    });
+  } catch (error) {
+    console.error('POST /api/auth/register failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create account.',
+    });
+  }
+});
+
+router.post('/login', async (req, res) => {
+  const validation = validateLoginInput(req.body || {});
+
+  if (!validation.ok) {
+    return res.status(400).json({
+      success: false,
+      message: validation.message,
+    });
+  }
+
+  try {
+    const { email, password } = validation.value;
+    const user = await findUserByEmail(email);
+
+    if (
+      !user ||
+      !verifyPassword(password, user.password_salt, user.password_hash)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Login successful.',
+      data: {
+        token: createSessionToken(user),
+        user: toPublicUser(user),
+      },
+    });
+  } catch (error) {
+    console.error('POST /api/auth/login failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to log in.',
+    });
+  }
+});
+
+module.exports = router;
