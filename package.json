@@ -1,1 +1,7 @@
-{}
+{
+  "name": "e-scooter-rental-platform",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write ."
+  }
+}
