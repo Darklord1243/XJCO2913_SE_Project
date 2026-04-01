@@ -2,9 +2,20 @@
   "name": "e-scooter-rental-platform",
   "private": true,
   "scripts": {
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:init": "node src/backend/db/init.js",
+    "dev": "vite src/frontend"
   },
   "devDependencies": {
-    "prettier": "^3.8.1"
+    "@vitejs/plugin-react": "^6.0.1",
+    "prettier": "^3.8.1",
+    "vite": "^8.0.3"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "sqlite3": "^6.0.1"
   }
 }

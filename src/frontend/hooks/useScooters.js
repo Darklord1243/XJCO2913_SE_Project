@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-const SCOOTERS_ENDPOINT = '/api/scooters';
+const SCOOTERS_ENDPOINT = 'http://127.0.0.1:3000/api/scooters';
 
 function buildContractError(message) {
   return new Error(message);
