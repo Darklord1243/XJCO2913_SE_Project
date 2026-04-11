@@ -1,0 +1,40 @@
+cw1 content（3-4 A4 pages,no more than 4 pages)
+Part I (10 points)
+Q1. the number of team members; 
+Q2. the Belbin roles of every team mebers,there are 8 Belbin's roles as below.
+CW company worker
+CH chair
+SH shaper
+PL plant
+RI resource investigator
+ME monitor/evaluator
+TW team worker
+CF completer/finisher
+It is recommended that you use a table to list every team member and their roles
+
+Q3 Team strengths
+3 Points
+Grading comment:
+On the basis of the team profiles identify one strength of your team.
+Discuss this in terms of the Belbin role definitions.
+
+Q4 Team weaknesses
+3 Points
+Grading comment:
+On the basis of the team profiles identify one weakness of your team.
+Discuss this in terms of the Belbin role definitions.
+
+Q5 Mitigation strategy
+4 Points
+Grading comment:
+How will you mitigate the risks of the weakness to your team during the project?
+Describe two mitigation strategies you will employ during the project sprints.
+
+Part II (5 points)
+team repository 
+Is the structure set up for the whole team (1)
+Is the issue tracker being used (1)
+Is the wiki being used for sprint 1 plan and initial design (1)
+Is the wiki being used for sprint 1 outcomes  (1)
+Is the wiki being used for records of meeting minutes and attendance (1)
+Provide screenshots to prove 

@@ -1,28 +1,7 @@
 import { useMemo, useState } from 'react';
 
-const SESSION_STORAGE_KEY = 'escooter.session';
 const REGISTER_ENDPOINT = 'http://127.0.0.1:3000/api/auth/register';
 const LOGIN_ENDPOINT = 'http://127.0.0.1:3000/api/auth/login';
-
-function loadSession() {
-  const rawValue = localStorage.getItem(SESSION_STORAGE_KEY);
-
-  if (!rawValue) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(rawValue);
-  } catch (error) {
-    console.error('Failed to parse saved session:', error);
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    return null;
-  }
-}
-
-function saveSession(session) {
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-}
 
 async function requestJson(url, options = {}) {
   const response = await fetch(url, options);
@@ -41,7 +20,7 @@ async function requestJson(url, options = {}) {
   return payload;
 }
 
-export default function AuthManager() {
+export default function AuthManager({ session, onSessionChange }) {
   const [registerForm, setRegisterForm] = useState({
     fullName: '',
     email: '',
@@ -59,7 +38,6 @@ export default function AuthManager() {
     text: '',
     state: '',
   });
-  const [session, setSession] = useState(() => loadSession());
 
   const sessionView = useMemo(() => {
     if (!session) {
@@ -94,8 +72,7 @@ export default function AuthManager() {
         body: JSON.stringify(registerForm),
       });
 
-      saveSession(result.data);
-      setSession(result.data);
+      onSessionChange(result.data);
       setRegisterMessage({
         text: result.message || 'Account created successfully.',
         state: 'success',
@@ -128,8 +105,7 @@ export default function AuthManager() {
         body: JSON.stringify(loginForm),
       });
 
-      saveSession(result.data);
-      setSession(result.data);
+      onSessionChange(result.data);
       setLoginMessage({
         text: result.message || 'Login successful.',
         state: 'success',
@@ -148,8 +124,7 @@ export default function AuthManager() {
   }
 
   function handleLogout() {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    setSession(null);
+    onSessionChange(null);
     setRegisterMessage({ text: '', state: '' });
     setLoginMessage({ text: '', state: '' });
   }

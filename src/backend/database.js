@@ -48,6 +48,17 @@ async function findUserByEmail(email) {
   );
 }
 
+async function findUserById(id) {
+  return dbGet(
+    `
+      SELECT id, full_name, email, password_salt, password_hash, created_at
+      FROM users
+      WHERE id = ?;
+    `,
+    [id]
+  );
+}
+
 async function createUser({ fullName, email, passwordSalt, passwordHash }) {
   const result = await dbRun(
     `
@@ -70,5 +81,6 @@ async function createUser({ fullName, email, passwordSalt, passwordHash }) {
 module.exports = {
   createUser,
   findUserByEmail,
+  findUserById,
   resolveDatabasePath,
 };

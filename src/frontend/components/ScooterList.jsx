@@ -1,5 +1,40 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useScooters } from '../hooks/useScooters';
-import { useMemo, useState } from 'react';
+import { getSessionToken } from '../session';
+
+const BOOKING_ENDPOINT = 'http://127.0.0.1:3000/api/bookings';
+const defaultPaymentForm = {
+  cardholderName: '',
+  cardNumber: '',
+  expiryDate: '',
+  cvv: '',
+};
+const hirePlanConfig = [
+  {
+    key: 'oneHour',
+    title: '1 hour',
+    description: 'Quick journeys and pay-as-you-go trips.',
+    durationHours: 1,
+  },
+  {
+    key: 'fourHours',
+    title: '4 hours',
+    description: 'A flexible window for errands and city stops.',
+    durationHours: 4,
+  },
+  {
+    key: 'oneDay',
+    title: '1 day',
+    description: 'Full-day access for commuting or sightseeing.',
+    durationHours: 24,
+  },
+  {
+    key: 'oneWeek',
+    title: '1 week',
+    description: 'The lowest long-hire rate for repeat journeys.',
+    durationHours: 168,
+  },
+];
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-GB', {
@@ -18,9 +53,47 @@ function toStatusLabel(status) {
     .join(' ');
 }
 
-export default function ScooterList() {
+function formatConfirmationTime(value) {
+  if (!value) {
+    return 'Not confirmed';
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, options);
+  let payload = null;
+
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payload?.error || payload?.message || 'Request failed.');
+  }
+
+  return payload;
+}
+
+export default function ScooterList({ session, onBookingCreated }) {
   const { scooters, isLoading, error, refetchScooters } = useScooters();
   const [selectedScooterId, setSelectedScooterId] = useState(null);
+  const [bookingScooterId, setBookingScooterId] = useState(null);
+  const [selectedDurationCode, setSelectedDurationCode] = useState('oneHour');
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
+  const [paymentForm, setPaymentForm] = useState(defaultPaymentForm);
+  const [bookingMessage, setBookingMessage] = useState({
+    text: '',
+    state: '',
+  });
+  const [bookingResult, setBookingResult] = useState(null);
 
   const selectedScooter = useMemo(() => {
     if (!Array.isArray(scooters) || scooters.length === 0) {
@@ -55,36 +128,109 @@ export default function ScooterList() {
     }));
   }, [scooters]);
 
-  const hirePlanConfig = [
-    {
-      key: 'oneHour',
-      title: '1 hour',
-      description: 'Quick journeys and pay-as-you-go trips.',
-      durationHours: 1,
-    },
-    {
-      key: 'fourHours',
-      title: '4 hours',
-      description: 'A flexible window for errands and city stops.',
-      durationHours: 4,
-    },
-    {
-      key: 'oneDay',
-      title: '1 day',
-      description: 'Full-day access for commuting or sightseeing.',
-      durationHours: 24,
-    },
-    {
-      key: 'oneWeek',
-      title: '1 week',
-      description: 'The lowest long-hire rate for repeat journeys.',
-      durationHours: 168,
-    },
-  ];
+  const bookingScooter = useMemo(
+    () =>
+      scooters.find((scooter) => scooter.scooterId === bookingScooterId) ||
+      null,
+    [bookingScooterId, scooters]
+  );
+
+  const selectedPlan = useMemo(
+    () =>
+      hirePlanConfig.find((plan) => plan.key === selectedDurationCode) ||
+      hirePlanConfig[0],
+    [selectedDurationCode]
+  );
+
+  const bookingTotal = bookingScooter?.pricing?.[selectedDurationCode] ?? 0;
+  const sessionToken = getSessionToken(session);
+  const isSignedIn = Boolean(sessionToken);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setIsBookingModalOpen(false);
+      setBookingScooterId(null);
+      setPaymentForm(defaultPaymentForm);
+      setBookingMessage({ text: '', state: '' });
+    }
+  }, [isSignedIn]);
+
+  function openBookingModal(scooterId) {
+    if (!isSignedIn) {
+      return;
+    }
+
+    setSelectedScooterId(scooterId);
+    setBookingScooterId(scooterId);
+    setSelectedDurationCode('oneHour');
+    setPaymentForm(defaultPaymentForm);
+    setBookingMessage({ text: '', state: '' });
+    setIsBookingModalOpen(true);
+  }
+
+  function closeBookingModal() {
+    if (isBooking) {
+      return;
+    }
+
+    setIsBookingModalOpen(false);
+    setBookingScooterId(null);
+    setSelectedDurationCode('oneHour');
+    setPaymentForm(defaultPaymentForm);
+    setBookingMessage({ text: '', state: '' });
+  }
+
+  async function handleBookingSubmit(event) {
+    event.preventDefault();
+
+    if (!bookingScooter || !sessionToken) {
+      setBookingMessage({
+        text: 'Sign in and select an available scooter to confirm a booking.',
+        state: 'error',
+      });
+      return;
+    }
+
+    setIsBooking(true);
+    setBookingMessage({ text: '', state: '' });
+
+    try {
+      const result = await requestJson(BOOKING_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          scooterId: bookingScooter.scooterId,
+          durationCode: selectedDurationCode,
+          payment: paymentForm,
+        }),
+      });
+
+      await refetchScooters();
+      setBookingResult(result.data);
+      setSelectedScooterId(result.data.scooterId);
+      setIsBookingModalOpen(false);
+      setBookingScooterId(null);
+      setSelectedDurationCode('oneHour');
+      setPaymentForm(defaultPaymentForm);
+      setBookingMessage({ text: '', state: '' });
+      onBookingCreated?.();
+    } catch (bookingError) {
+      console.error('Booking confirmation failed:', bookingError);
+      setBookingMessage({
+        text: bookingError?.message || 'Unable to confirm booking.',
+        state: 'error',
+      });
+    } finally {
+      setIsBooking(false);
+    }
+  }
 
   if (isLoading) {
     return (
-      <main className="shell" aria-live="polite">
+      <section className="scooter-list-view" aria-live="polite">
         <section className="pricing-layout">
           <article className="panel panel-accent">
             <div className="pricing-summary">
@@ -98,13 +244,13 @@ export default function ScooterList() {
             <p className="empty-state">Loading scooters...</p>
           </article>
         </section>
-      </main>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <main className="shell">
+      <section className="scooter-list-view">
         <section className="pricing-layout">
           <article className="panel panel-accent">
             <div className="panel-header">
@@ -128,13 +274,13 @@ export default function ScooterList() {
             </button>
           </article>
         </section>
-      </main>
+      </section>
     );
   }
 
   if (scooters.length === 0) {
     return (
-      <main className="shell">
+      <section className="scooter-list-view">
         <section className="pricing-layout">
           <article className="panel panel-accent">
             <div className="panel-header">
@@ -146,7 +292,7 @@ export default function ScooterList() {
             </p>
           </article>
         </section>
-      </main>
+      </section>
     );
   }
 
@@ -155,7 +301,7 @@ export default function ScooterList() {
   ).length;
 
   return (
-    <main className="shell">
+    <section className="scooter-list-view">
       <section className="pricing-layout">
         <article className="panel panel-accent">
           <div className="panel-header">
@@ -186,6 +332,70 @@ export default function ScooterList() {
               </p>
             </div>
           </div>
+          {bookingResult ? (
+            <div
+              className="booking-confirmation"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="panel-header">
+                <p className="panel-kicker">ID5</p>
+                <h3>Booking confirmed</h3>
+              </div>
+              <div className="booking-confirmation__grid">
+                <div className="summary-card">
+                  <p className="summary-label">Booking ID</p>
+                  <p className="summary-value">{bookingResult.bookingId}</p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Scooter</p>
+                  <p className="summary-value">{bookingResult.scooterId}</p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Hire plan</p>
+                  <p className="summary-value">
+                    {toStatusLabel(bookingResult.durationCode)}
+                  </p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Total price</p>
+                  <p className="summary-value">
+                    {formatCurrency(bookingResult.totalPrice)}
+                  </p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Created at</p>
+                  <p className="summary-value">
+                    {formatConfirmationTime(bookingResult.createdAt)}
+                  </p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Booking status</p>
+                  <p className="summary-value">
+                    {toStatusLabel(bookingResult.status)}
+                  </p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Scooter status</p>
+                  <p className="summary-value">
+                    {toStatusLabel(bookingResult.scooterStatus)}
+                  </p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Payment</p>
+                  <p className="summary-value">
+                    {toStatusLabel(bookingResult.paymentStatus)}
+                  </p>
+                </div>
+                <div className="summary-card">
+                  <p className="summary-label">Reference</p>
+                  <p className="summary-value">
+                    {bookingResult.paymentReference}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </article>
 
         <article className="panel">
@@ -195,16 +405,14 @@ export default function ScooterList() {
           </div>
           <div className="scooter-list" role="list" aria-live="polite">
             {scooters.map((scooter) => (
-              <button
+              <article
                 key={scooter.scooterId}
-                type="button"
                 className={`scooter-option${
                   selectedScooter?.scooterId === scooter.scooterId
                     ? ' is-selected'
                     : ''
                 }`}
-                aria-pressed={selectedScooter?.scooterId === scooter.scooterId}
-                onClick={() => setSelectedScooterId(scooter.scooterId)}
+                role="listitem"
               >
                 <div className="scooter-option__top">
                   <strong>{scooter.scooterId}</strong>
@@ -221,7 +429,32 @@ export default function ScooterList() {
                   Starts at {formatCurrency(scooter.pricing?.oneHour ?? 0)} per
                   hour
                 </p>
-              </button>
+                <div className="scooter-option__actions">
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setSelectedScooterId(scooter.scooterId)}
+                  >
+                    {selectedScooter?.scooterId === scooter.scooterId
+                      ? 'Selected'
+                      : 'Select'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openBookingModal(scooter.scooterId)}
+                    disabled={!isSignedIn || scooter.status !== 'available'}
+                  >
+                    Book now
+                  </button>
+                </div>
+                <p className="scooter-option__hint">
+                  {!isSignedIn
+                    ? 'Sign in to start a booking confirmation.'
+                    : scooter.status !== 'available'
+                      ? 'Booking opens again when this scooter returns to available.'
+                      : 'Ready to confirm a booking from the current pricing plan.'}
+                </p>
+              </article>
             ))}
           </div>
         </article>
@@ -274,6 +507,195 @@ export default function ScooterList() {
           </div>
         </article>
       </section>
-    </main>
+
+      {isBookingModalOpen && bookingScooter ? (
+        <div className="modal-backdrop">
+          <div
+            className="modal-window"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-dialog-title"
+          >
+            <div className="panel-header">
+              <p className="panel-kicker">ID5</p>
+              <h2 id="booking-dialog-title">Confirm your booking</h2>
+            </div>
+
+            <div className="booking-summary-card">
+              <p className="summary-label">Scooter</p>
+              <p className="summary-value">{bookingScooter.scooterId}</p>
+              <p className="hire-note">
+                {bookingScooter.location?.description || 'Unknown location'} •{' '}
+                {toStatusLabel(bookingScooter.status)}
+              </p>
+            </div>
+
+            <form className="form-grid" onSubmit={handleBookingSubmit}>
+              <fieldset className="plan-selector">
+                <legend className="summary-label">
+                  Choose a hire duration
+                </legend>
+                {hirePlanConfig.map((plan) => (
+                  <label
+                    key={plan.key}
+                    className={`plan-option${
+                      selectedDurationCode === plan.key ? ' is-active' : ''
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="durationCode"
+                      value={plan.key}
+                      checked={selectedDurationCode === plan.key}
+                      onChange={(event) =>
+                        setSelectedDurationCode(event.target.value)
+                      }
+                    />
+                    <span className="plan-option__body">
+                      <span className="plan-option__top">
+                        <strong>{plan.title}</strong>
+                        <span>
+                          {formatCurrency(
+                            bookingScooter.pricing?.[plan.key] ?? 0
+                          )}
+                        </span>
+                      </span>
+                      <span className="plan-option__description">
+                        {plan.description}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+
+              <div className="booking-summary-card">
+                <p className="summary-label">Selected plan</p>
+                <p className="summary-value">{selectedPlan.title}</p>
+                <p className="hire-note">
+                  Total to confirm now: {formatCurrency(bookingTotal)}
+                </p>
+              </div>
+
+              <div className="booking-summary-card">
+                <p className="summary-label">Payment simulator</p>
+                <p className="payment-note">
+                  Use <strong>4242 4242 4242 4242</strong> to simulate a
+                  successful payment.
+                </p>
+                <p className="payment-note">
+                  Use <strong>4000 0000 0000 0002</strong> to simulate a
+                  declined payment.
+                </p>
+              </div>
+
+              <label htmlFor="payment-cardholder-name">
+                Cardholder name
+                <input
+                  id="payment-cardholder-name"
+                  name="cardholderName"
+                  type="text"
+                  autoComplete="cc-name"
+                  value={paymentForm.cardholderName}
+                  onChange={(event) =>
+                    setPaymentForm((current) => ({
+                      ...current,
+                      cardholderName: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <label htmlFor="payment-card-number">
+                Card number
+                <input
+                  id="payment-card-number"
+                  name="cardNumber"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="cc-number"
+                  maxLength={19}
+                  placeholder="4242 4242 4242 4242"
+                  value={paymentForm.cardNumber}
+                  onChange={(event) =>
+                    setPaymentForm((current) => ({
+                      ...current,
+                      cardNumber: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+
+              <div className="payment-grid">
+                <label htmlFor="payment-expiry-date">
+                  Expiry date
+                  <input
+                    id="payment-expiry-date"
+                    name="expiryDate"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
+                    maxLength={5}
+                    placeholder="MM/YY"
+                    value={paymentForm.expiryDate}
+                    onChange={(event) =>
+                      setPaymentForm((current) => ({
+                        ...current,
+                        expiryDate: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+
+                <label htmlFor="payment-cvv">
+                  CVV
+                  <input
+                    id="payment-cvv"
+                    name="cvv"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
+                    maxLength={4}
+                    placeholder="123"
+                    value={paymentForm.cvv}
+                    onChange={(event) =>
+                      setPaymentForm((current) => ({
+                        ...current,
+                        cvv: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+              </div>
+
+              <p
+                className="message"
+                data-state={bookingMessage.state || undefined}
+                aria-live="polite"
+              >
+                {bookingMessage.text}
+              </p>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={closeBookingModal}
+                  disabled={isBooking}
+                >
+                  Cancel
+                </button>
+                <button type="submit" disabled={isBooking}>
+                  {isBooking ? 'Confirming...' : 'Confirm booking'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
