@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AuthManager from './components/AuthManager';
+import Layout from './components/Layout.jsx';
 import MyBookings from './components/MyBookings';
 import ScooterList from './components/ScooterList';
 import { clearSession, loadSession, saveSession } from './session';
@@ -18,15 +20,57 @@ export default function App() {
     setSession(nextSession);
   }
 
+  function handleLogout() {
+    handleSessionChange(null);
+  }
+
   function handleBookingCreated() {
     setBookingRefreshKey((current) => current + 1);
   }
 
   return (
-    <main className="shell app-layout">
-      <AuthManager session={session} onSessionChange={handleSessionChange} />
-      <ScooterList session={session} onBookingCreated={handleBookingCreated} />
-      <MyBookings session={session} refreshKey={bookingRefreshKey} />
-    </main>
+    <BrowserRouter>
+      <main className="shell app-layout">
+        {session ? (
+          <Routes>
+            <Route path="/" element={<Navigate to="/fleet" replace />} />
+            <Route element={<Layout onLogout={handleLogout} />}>
+              <Route
+                path="fleet"
+                element={
+                  <ScooterList
+                    session={session}
+                    onBookingCreated={handleBookingCreated}
+                  />
+                }
+              />
+              <Route
+                path="bookings"
+                element={
+                  <MyBookings
+                    session={session}
+                    refreshKey={bookingRefreshKey}
+                  />
+                }
+              />
+              <Route path="*" element={<Navigate to="/fleet" replace />} />
+            </Route>
+          </Routes>
+        ) : (
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <AuthManager
+                  session={session}
+                  onSessionChange={handleSessionChange}
+                />
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        )}
+      </main>
+    </BrowserRouter>
   );
 }
