@@ -47,6 +47,80 @@ body {
   gap: 2rem;
 }
 
+/* App shell: top nav + routed content */
+.layout-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-nav {
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #115e59 0%, #0f766e 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 18px rgba(17, 94, 89, 0.18);
+}
+
+.app-nav__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0.85rem 0;
+}
+
+.app-nav__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+}
+
+.app-nav__link {
+  color: rgba(255, 255, 255, 0.88);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.4rem 0.2rem;
+  border-radius: 8px;
+  transition:
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.app-nav__link:hover {
+  color: #fff;
+}
+
+.app-nav__link:focus {
+  outline: 3px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 3px;
+}
+
+.app-nav__link--active {
+  color: #fff;
+  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.75);
+}
+
+.app-nav .app-nav__logout.secondary {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+}
+
+.app-nav .app-nav__logout.secondary:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.layout-outlet {
+  flex: 1;
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+}
+
 .hero {
   display: grid;
   gap: 1rem;
