@@ -106,9 +106,40 @@ function createSessionToken(user) {
   return Buffer.from(payload, 'utf8').toString('base64url');
 }
 
+function parseSessionToken(token) {
+  if (typeof token !== 'string' || token.trim() === '') {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(
+      Buffer.from(token.trim(), 'base64url').toString('utf8')
+    );
+
+    if (
+      !payload ||
+      !Number.isInteger(payload.userId) ||
+      payload.userId <= 0 ||
+      typeof payload.email !== 'string' ||
+      payload.email.trim() === ''
+    ) {
+      return null;
+    }
+
+    return {
+      email: payload.email,
+      issuedAt: payload.issuedAt || null,
+      userId: payload.userId,
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
 module.exports = {
   createSessionToken,
   hashPassword,
+  parseSessionToken,
   toPublicUser,
   validateLoginInput,
   validateRegistrationInput,
