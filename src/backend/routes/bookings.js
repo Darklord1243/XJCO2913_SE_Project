@@ -282,4 +282,294 @@ router.post('/bookings', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// ID 12: Cancel booking
+// ---------------------------------------------------------------------------
+
+const DURATION_RANK = { oneHour: 0, fourHours: 1, oneDay: 2, oneWeek: 3 };
+
+router.patch('/bookings/:bookingId/cancel', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req, res);
+
+    if (!user) {
+      return;
+    }
+
+    const bookingId = Number(req.params.bookingId);
+
+    if (!Number.isInteger(bookingId) || bookingId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid booking ID.',
+      });
+    }
+
+    const booking = await dbGet(
+      'SELECT id, user_id, scooter_id, status FROM bookings WHERE id = ?;',
+      [bookingId]
+    );
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: 'Booking not found.',
+      });
+    }
+
+    if (booking.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only cancel your own bookings.',
+      });
+    }
+
+    if (booking.status !== 'active') {
+      return res.status(409).json({
+        success: false,
+        error: 'Only active bookings can be cancelled.',
+      });
+    }
+
+    await dbRun('BEGIN TRANSACTION');
+
+    try {
+      await dbRun(
+        `UPDATE bookings
+         SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?;`,
+        [bookingId]
+      );
+
+      await dbRun(
+        `UPDATE scooters
+         SET status = 'available', updated_at = CURRENT_TIMESTAMP
+         WHERE scooter_id = ?;`,
+        [booking.scooter_id]
+      );
+
+      await dbRun('COMMIT');
+    } catch (txError) {
+      try {
+        await dbRun('ROLLBACK');
+      } catch (_rollbackError) {
+        /* swallow */
+      }
+      throw txError;
+    }
+
+    const updated = await dbGet(
+      `SELECT id, scooter_id, duration_code, total_price, status,
+              created_at, updated_at
+       FROM bookings WHERE id = ?;`,
+      [bookingId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: mapBookingRow(updated),
+    });
+  } catch (error) {
+    console.error('PATCH /api/bookings/:bookingId/cancel failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to cancel booking.',
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ID 11: Extend current booking
+// ---------------------------------------------------------------------------
+
+router.patch('/bookings/:bookingId/extend', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req, res);
+
+    if (!user) {
+      return;
+    }
+
+    const bookingId = Number(req.params.bookingId);
+
+    if (!Number.isInteger(bookingId) || bookingId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid booking ID.',
+      });
+    }
+
+    const newDurationCode = normalizeText(req.body?.newDurationCode);
+
+    if (!durationCodes.includes(newDurationCode)) {
+      return res.status(400).json({
+        success: false,
+        error: `New duration code must be one of: ${durationCodes.join(', ')}.`,
+      });
+    }
+
+    const booking = await dbGet(
+      `SELECT id, user_id, scooter_id, duration_code, total_price, status
+       FROM bookings WHERE id = ?;`,
+      [bookingId]
+    );
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        error: 'Booking not found.',
+      });
+    }
+
+    if (booking.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only extend your own bookings.',
+      });
+    }
+
+    if (booking.status !== 'active') {
+      return res.status(409).json({
+        success: false,
+        error: 'Only active bookings can be extended.',
+      });
+    }
+
+    if (
+      (DURATION_RANK[newDurationCode] ?? -1) <=
+      (DURATION_RANK[booking.duration_code] ?? -1)
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'New duration must be longer than the current hire plan.',
+      });
+    }
+
+    const scooterPricing = await getScooterPricingSnapshot(booking.scooter_id);
+
+    if (!scooterPricing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Scooter pricing not found.',
+      });
+    }
+
+    const newTotalPrice = scooterPricing[pricingColumnMap[newDurationCode]];
+
+    await dbRun(
+      `UPDATE bookings
+       SET duration_code = ?, total_price = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?;`,
+      [newDurationCode, newTotalPrice, bookingId]
+    );
+
+    const updated = await dbGet(
+      `SELECT id, scooter_id, duration_code, total_price, status,
+              created_at, updated_at
+       FROM bookings WHERE id = ?;`,
+      [bookingId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...mapBookingRow(updated),
+        previousDuration: booking.duration_code,
+        previousPrice: booking.total_price,
+      },
+    });
+  } catch (error) {
+    console.error('PATCH /api/bookings/:bookingId/extend failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to extend booking.',
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ID 19: Weekly income for rental options
+// ---------------------------------------------------------------------------
+
+router.get('/bookings/income/weekly', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req, res);
+
+    if (!user) {
+      return;
+    }
+
+    // Accept optional weekStart query (YYYY-MM-DD); default to current Monday
+    let weekStart;
+    const qsWeekStart = normalizeText(req.query?.weekStart);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(qsWeekStart)) {
+      weekStart = qsWeekStart;
+    } else {
+      const now = new Date();
+      const dayOfWeek = now.getDay(); // 0=Sun
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      weekStart = monday.toISOString().slice(0, 10);
+    }
+
+    // weekEnd = weekStart + 7 days (exclusive upper bound)
+    const weekEndDate = new Date(`${weekStart}T00:00:00Z`);
+    weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 7);
+    const weekEnd = weekEndDate.toISOString().slice(0, 10);
+
+    const rows = await dbAll(
+      `SELECT duration_code,
+              SUM(total_price) AS total_income,
+              COUNT(*)         AS booking_count
+       FROM bookings
+       WHERE date(created_at) >= ? AND date(created_at) < ?
+       GROUP BY duration_code;`,
+      [weekStart, weekEnd]
+    );
+
+    const income = {
+      oneHour: 0,
+      fourHours: 0,
+      oneDay: 0,
+      oneWeek: 0,
+    };
+
+    const counts = {
+      oneHour: 0,
+      fourHours: 0,
+      oneDay: 0,
+      oneWeek: 0,
+    };
+
+    for (const row of rows) {
+      if (income.hasOwnProperty(row.duration_code)) {
+        income[row.duration_code] = row.total_income;
+        counts[row.duration_code] = row.booking_count;
+      }
+    }
+
+    const grandTotal =
+      income.oneHour + income.fourHours + income.oneDay + income.oneWeek;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        weekStart,
+        weekEnd,
+        income,
+        counts,
+        grandTotal,
+      },
+    });
+  } catch (error) {
+    console.error('GET /api/bookings/income/weekly failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch weekly income.',
+    });
+  }
+});
+
 module.exports = router;

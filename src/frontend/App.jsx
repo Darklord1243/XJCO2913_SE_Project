@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AuthManager from './components/AuthManager';
+import Income from './components/Income';
 import Layout from './components/Layout.jsx';
 import MyBookings from './components/MyBookings';
 import ScooterList from './components/ScooterList';
+import ScooterMap from './components/ScooterMap';
 import { clearSession, loadSession, saveSession } from './session';
 
 export default function App() {
@@ -53,6 +55,8 @@ export default function App() {
                   />
                 }
               />
+              <Route path="map" element={<ScooterMap />} />
+              <Route path="income" element={<Income session={session} />} />
               <Route path="*" element={<Navigate to="/fleet" replace />} />
             </Route>
           </Routes>

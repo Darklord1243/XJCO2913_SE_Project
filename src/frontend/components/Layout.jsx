@@ -35,6 +35,22 @@ export default function Layout({ onLogout }) {
             >
               My Bookings
             </NavLink>
+            <NavLink
+              to="/map"
+              className={({ isActive }) =>
+                `app-nav__link${isActive ? ' app-nav__link--active' : ''}`
+              }
+            >
+              Map
+            </NavLink>
+            <NavLink
+              to="/income"
+              className={({ isActive }) =>
+                `app-nav__link${isActive ? ' app-nav__link--active' : ''}`
+              }
+            >
+              Income
+            </NavLink>
           </div>
           <button
             type="button"

@@ -783,3 +783,166 @@ dd {
     flex-direction: column;
   }
 }
+
+/* -----------------------------------------------------------------------
+   Sprint 3 additions
+   ----------------------------------------------------------------------- */
+
+/* ID 12 / ID 11: Booking actions (cancel + extend) */
+.booking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.booking-actions__cancel {
+  color: var(--error) !important;
+  background: rgba(180, 35, 24, 0.08) !important;
+}
+
+.extend-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem;
+}
+
+.extend-inline__label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.extend-inline__select {
+  min-width: 7rem;
+}
+
+/* ID 19: Income dashboard */
+.income-view {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.income-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.income-card {
+  padding: 1.15rem;
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.88),
+    rgba(245, 249, 248, 0.96)
+  );
+}
+
+.income-card__label {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.income-card__value {
+  margin: 0 0 0.25rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.income-card__meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.income-total {
+  padding: 1.15rem;
+  border-radius: 18px;
+  background: rgba(221, 245, 239, 0.92);
+  text-align: center;
+}
+
+.income-total__value {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2rem;
+}
+
+.week-navigator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.week-navigator__label {
+  font-weight: 700;
+  min-width: 12rem;
+  text-align: center;
+}
+
+/* ID 18: Scooter map */
+.map-view {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.leaflet-map-container {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.map-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.map-legend__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Leaflet marker override */
+.scooter-map-marker {
+  background: transparent;
+  border: none;
+}
+
+@media (max-width: 900px) {
+  .income-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .booking-actions {
+    flex-direction: column;
+  }
+
+  .extend-inline {
+    flex-direction: column;
+    width: 100%;
+  }
+}
