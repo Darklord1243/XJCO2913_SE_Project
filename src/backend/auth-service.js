@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
+const ALLOWED_USER_TYPES = new Set(['standard', 'student', 'senior']);
 
 function normalizeEmail(value) {
   return String(value || '')
@@ -88,19 +89,29 @@ function validateLoginInput(payload) {
 }
 
 function toPublicUser(user) {
+  const normalizedUserType = ALLOWED_USER_TYPES.has(user?.user_type)
+    ? user.user_type
+    : 'standard';
+
   return {
     id: user.id,
     fullName: user.full_name,
     email: user.email,
+    userType: normalizedUserType,
     createdAt: user.created_at,
   };
 }
 
 function createSessionToken(user) {
+  const normalizedUserType = ALLOWED_USER_TYPES.has(user?.user_type)
+    ? user.user_type
+    : 'standard';
+
   const payload = JSON.stringify({
     email: user.email,
     issuedAt: new Date().toISOString(),
     userId: user.id,
+    userType: normalizedUserType,
   });
 
   return Buffer.from(payload, 'utf8').toString('base64url');
@@ -130,6 +141,9 @@ function parseSessionToken(token) {
       email: payload.email,
       issuedAt: payload.issuedAt || null,
       userId: payload.userId,
+      userType: ALLOWED_USER_TYPES.has(payload.userType)
+        ? payload.userType
+        : 'standard',
     };
   } catch (_error) {
     return null;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSessionToken } from '../session';
+import { requestJson } from '../utils/api';
 
 const BOOKINGS_ENDPOINT = 'http://127.0.0.1:3000/api/bookings/me';
 
@@ -26,18 +27,12 @@ export function useBookings(session, refreshKey = 0) {
       setError(null);
 
       try {
-        const response = await fetch(BOOKINGS_ENDPOINT, {
+        const payload = await requestJson(BOOKINGS_ENDPOINT, {
           signal,
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw buildContractError(payload?.error || 'Request failed.');
-        }
 
         if (
           !payload ||

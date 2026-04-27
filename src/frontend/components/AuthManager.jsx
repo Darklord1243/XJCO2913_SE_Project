@@ -1,24 +1,8 @@
 import { useMemo, useState } from 'react';
+import { requestJson } from '../utils/api';
 
 const REGISTER_ENDPOINT = 'http://127.0.0.1:3000/api/auth/register';
 const LOGIN_ENDPOINT = 'http://127.0.0.1:3000/api/auth/login';
-
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
-  let payload = null;
-
-  try {
-    payload = await response.json();
-  } catch (_error) {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(payload?.message || 'Request failed.');
-  }
-
-  return payload;
-}
 
 export default function AuthManager({ session, onSessionChange }) {
   const [registerForm, setRegisterForm] = useState({

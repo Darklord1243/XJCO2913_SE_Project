@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getSessionToken } from '../session';
+import { requestJson } from '../utils/api';
+import { formatCurrency } from '../utils/currency';
 
 const API_BASE = 'http://127.0.0.1:3000/api';
 
@@ -9,15 +11,6 @@ const PLAN_CONFIG = [
   { key: 'oneDay', label: '1 Day' },
   { key: 'oneWeek', label: '1 Week' },
 ];
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 function formatWeekLabel(dateStr) {
   if (!dateStr) {
@@ -64,19 +57,13 @@ export default function Income({ session }) {
       setError(null);
 
       try {
-        const res = await fetch(
+        const payload = await requestJson(
           `${API_BASE}/bookings/income/weekly?weekStart=${weekStart}`,
           {
             signal,
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
-        const payload = await res.json();
-
-        if (!res.ok) {
-          throw new Error(payload?.error || 'Request failed.');
-        }
 
         setData(payload.data);
       } catch (err) {

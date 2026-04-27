@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useScooters } from '../hooks/useScooters';
 import { getSessionToken } from '../session';
+import { requestJson } from '../utils/api';
+import { formatCurrency } from '../utils/currency';
 
 const BOOKING_ENDPOINT = 'http://127.0.0.1:3000/api/bookings';
 const defaultPaymentForm = {
@@ -36,15 +38,6 @@ const hirePlanConfig = [
   },
 ];
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
 function toStatusLabel(status) {
   return String(status || '')
     .split(/[_-]/)
@@ -62,23 +55,6 @@ function formatConfirmationTime(value) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
-}
-
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
-  let payload = null;
-
-  try {
-    payload = await response.json();
-  } catch (_error) {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(payload?.error || payload?.message || 'Request failed.');
-  }
-
-  return payload;
 }
 
 export default function ScooterList({ session, onBookingCreated }) {

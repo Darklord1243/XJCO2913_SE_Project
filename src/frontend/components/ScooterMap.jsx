@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useScooters } from '../hooks/useScooters';
+import { formatCurrency } from '../utils/currency';
 
 const LEEDS_CENTER = [53.8008, -1.5491];
 const DEFAULT_ZOOM = 14;
@@ -13,15 +14,6 @@ const STATUS_COLOURS = {
   maintenance: '#ef4444',
   offline: '#6b7280',
 };
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 function toStatusLabel(status) {
   return String(status || '')
@@ -50,6 +42,36 @@ export default function ScooterMap() {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
+  const markerDataSignatureRef = useRef('');
+
+  function buildMarkerDataSignature(scooterList) {
+    if (!Array.isArray(scooterList) || scooterList.length === 0) {
+      return '';
+    }
+
+    // Keep the signature stable even if item order changes.
+    return scooterList
+      .map((scooter) => ({
+        scooterId: scooter?.scooterId ?? '',
+        status: scooter?.status ?? '',
+        latitude: scooter?.location?.latitude ?? null,
+        longitude: scooter?.location?.longitude ?? null,
+        locationDescription: scooter?.location?.description ?? '',
+        oneHourPrice: scooter?.pricing?.oneHour ?? null,
+      }))
+      .sort((a, b) => String(a.scooterId).localeCompare(String(b.scooterId)))
+      .map((entry) =>
+        [
+          entry.scooterId,
+          entry.status,
+          entry.latitude,
+          entry.longitude,
+          entry.locationDescription,
+          entry.oneHourPrice,
+        ].join('|')
+      )
+      .join('||');
+  }
 
   // Initialise map once
   useEffect(() => {
@@ -82,6 +104,12 @@ export default function ScooterMap() {
     const map = mapInstanceRef.current;
 
     if (!map) {
+      return;
+    }
+
+    const nextSignature = buildMarkerDataSignature(scooters);
+
+    if (markerDataSignatureRef.current === nextSignature) {
       return;
     }
 
@@ -120,6 +148,8 @@ export default function ScooterMap() {
 
       markersRef.current.push(marker);
     }
+
+    markerDataSignatureRef.current = nextSignature;
   }, [scooters]);
 
   return (
