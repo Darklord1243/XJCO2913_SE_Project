@@ -1,5 +1,5 @@
 const express = require('express');
-const { parseSessionToken } = require('../auth-service');
+const { authenticateRequest, requireAdmin } = require('../auth-middleware');
 const {
   calculateWeeklyUserHours,
   createBookingInTransaction,
@@ -10,7 +10,7 @@ const {
   simulatePayment,
   validatePaymentPayload,
 } = require('../booking-service');
-const { findUserById, transactionMutex } = require('../database');
+const { transactionMutex } = require('../database');
 const db = require('../db/connection');
 
 const DISCOUNTED_USER_TYPES = new Set(['student', 'senior']);
@@ -65,17 +65,6 @@ function dbRun(sql, params = []) {
   });
 }
 
-function extractSessionToken(authorizationHeader) {
-  const normalizedHeader = normalizeText(authorizationHeader);
-
-  if (!normalizedHeader) {
-    return '';
-  }
-
-  const bearerMatch = normalizedHeader.match(/^Bearer\s+(.+)$/i);
-  return bearerMatch ? bearerMatch[1].trim() : normalizedHeader;
-}
-
 async function getScooterPricingSnapshot(scooterId) {
   return dbGet(
     `
@@ -112,40 +101,6 @@ function mapBookingRow(row) {
     createdAt: toIsoTimestamp(row.created_at),
     updatedAt: toIsoTimestamp(row.updated_at),
   };
-}
-
-async function authenticateRequest(req, res) {
-  const authorizationHeader = req.get('authorization');
-
-  if (!authorizationHeader) {
-    res.status(401).json({
-      success: false,
-      error: 'Authorization header is required.',
-    });
-    return null;
-  }
-
-  const session = parseSessionToken(extractSessionToken(authorizationHeader));
-
-  if (!session) {
-    res.status(401).json({
-      success: false,
-      error: 'Invalid session token.',
-    });
-    return null;
-  }
-
-  const user = await findUserById(session.userId);
-
-  if (!user) {
-    res.status(401).json({
-      success: false,
-      error: 'Invalid session token.',
-    });
-    return null;
-  }
-
-  return user;
 }
 
 async function handleGetMyBookings(req, res) {
@@ -547,7 +502,7 @@ router.patch('/bookings/:bookingId/extend', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// ID 19: Weekly income for rental options
+// ID 19: Weekly income for rental options (administrator only)
 // ---------------------------------------------------------------------------
 
 router.get('/bookings/income/weekly', async (req, res) => {
@@ -555,6 +510,10 @@ router.get('/bookings/income/weekly', async (req, res) => {
     const user = await authenticateRequest(req, res);
 
     if (!user) {
+      return;
+    }
+
+    if (!requireAdmin(res, user)) {
       return;
     }
 
@@ -627,6 +586,109 @@ router.get('/bookings/income/weekly', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch weekly income.',
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Admin bookings oversight: every booking, optionally filtered by status,
+// scooter, or user. Restricted to administrator accounts so individual rider
+// histories are never exposed to non-admin users.
+// ---------------------------------------------------------------------------
+
+const ALLOWED_OVERSIGHT_STATUSES = new Set(['active', 'completed']);
+
+router.get('/admin/bookings', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req, res);
+
+    if (!user) {
+      return;
+    }
+
+    if (!requireAdmin(res, user)) {
+      return;
+    }
+
+    const filters = [];
+    const params = [];
+    const rawStatus = normalizeText(req.query?.status);
+    const rawScooterId = normalizeId(req.query?.scooterId);
+    const rawUserIdInput = req.query?.userId;
+
+    if (rawStatus) {
+      if (!ALLOWED_OVERSIGHT_STATUSES.has(rawStatus)) {
+        return res.status(400).json({
+          success: false,
+          error: `Status filter must be one of: ${[...ALLOWED_OVERSIGHT_STATUSES].join(', ')}.`,
+        });
+      }
+      filters.push('b.status = ?');
+      params.push(rawStatus);
+    }
+
+    if (rawScooterId) {
+      filters.push('b.scooter_id = ?');
+      params.push(rawScooterId);
+    }
+
+    if (
+      rawUserIdInput !== undefined &&
+      rawUserIdInput !== null &&
+      rawUserIdInput !== ''
+    ) {
+      const numericUserId = Number(rawUserIdInput);
+
+      if (!Number.isInteger(numericUserId) || numericUserId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'userId filter must be a positive integer.',
+        });
+      }
+
+      filters.push('b.user_id = ?');
+      params.push(numericUserId);
+    }
+
+    const whereSql = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    const rows = await dbAll(
+      `
+        SELECT
+          b.id,
+          b.user_id,
+          b.scooter_id,
+          b.duration_code,
+          b.total_price,
+          b.status,
+          b.created_at,
+          b.updated_at,
+          u.full_name AS user_full_name,
+          u.email     AS user_email
+        FROM bookings b
+        LEFT JOIN users u ON u.id = b.user_id
+        ${whereSql}
+        ORDER BY b.created_at DESC, b.id DESC;
+      `,
+      params
+    );
+
+    const data = rows.map((row) => ({
+      ...mapBookingRow(row),
+      userId: row.user_id,
+      userFullName: row.user_full_name || null,
+      userEmail: row.user_email || null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error('GET /api/admin/bookings failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch bookings overview.',
     });
   }
 });

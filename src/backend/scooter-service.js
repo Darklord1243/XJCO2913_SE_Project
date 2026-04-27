@@ -1,4 +1,22 @@
-const scooterStatuses = ['available', 'in_use', 'reserved', 'maintenance'];
+/**
+ * Pure validation helpers for the scooter create/update payload.
+ *
+ * Lives outside the Express route so it can be unit-tested in isolation
+ * and reused by both `POST /api/scooters` and `PUT /api/scooters/:id`.
+ *
+ * The validator is deliberately strict: a single source of truth keeps
+ * the create and update paths from drifting and prevents partial / weird
+ * rows from reaching the database.
+ */
+
+const SCOOTER_STATUSES = Object.freeze([
+  'available',
+  'in_use',
+  'maintenance',
+  'offline',
+]);
+
+const SCOOTER_ID_PATTERN = /^[A-Z0-9-]{4,20}$/;
 
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -50,38 +68,6 @@ function validateNumberField(value, label, { min, max } = {}) {
   };
 }
 
-function validateDateField(value, label) {
-  const normalizedValue = normalizeText(value);
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
-    return {
-      ok: false,
-      message: `${label} must use YYYY-MM-DD format.`,
-    };
-  }
-
-  const parsedDate = new Date(`${normalizedValue}T00:00:00Z`);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return {
-      ok: false,
-      message: `${label} must be a real calendar date.`,
-    };
-  }
-
-  if (parsedDate.toISOString().slice(0, 10) !== normalizedValue) {
-    return {
-      ok: false,
-      message: `${label} must be a real calendar date.`,
-    };
-  }
-
-  return {
-    ok: true,
-    value: normalizedValue,
-  };
-}
-
 function validateScooterPayload(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return {
@@ -92,7 +78,7 @@ function validateScooterPayload(input) {
 
   const scooterId = normalizeId(input.scooterId);
 
-  if (!/^[A-Z0-9-]{4,20}$/.test(scooterId)) {
+  if (!SCOOTER_ID_PATTERN.test(scooterId)) {
     return {
       ok: false,
       message:
@@ -102,10 +88,10 @@ function validateScooterPayload(input) {
 
   const status = normalizeText(input.status).toLowerCase();
 
-  if (!scooterStatuses.includes(status)) {
+  if (!SCOOTER_STATUSES.includes(status)) {
     return {
       ok: false,
-      message: `Scooter status must be one of: ${scooterStatuses.join(', ')}.`,
+      message: `Scooter status must be one of: ${SCOOTER_STATUSES.join(', ')}.`,
     };
   }
 
@@ -186,84 +172,6 @@ function validateScooterPayload(input) {
     return oneWeek;
   }
 
-  const details = input.details;
-
-  if (!details || typeof details !== 'object' || Array.isArray(details)) {
-    return {
-      ok: false,
-      message: 'Scooter details are required.',
-    };
-  }
-
-  const displayName = normalizeText(details.displayName);
-
-  if (!displayName) {
-    return {
-      ok: false,
-      message: 'Display name is required.',
-    };
-  }
-
-  const model = normalizeText(details.model);
-
-  if (!model) {
-    return {
-      ok: false,
-      message: 'Model name is required.',
-    };
-  }
-
-  const batteryLevel = validateNumberField(
-    details.batteryLevel,
-    'Battery level',
-    {
-      min: 0,
-      max: 100,
-    }
-  );
-
-  if (!batteryLevel.ok) {
-    return batteryLevel;
-  }
-
-  const rangeKm = validateNumberField(details.rangeKm, 'Range (km)', {
-    min: 0,
-  });
-
-  if (!rangeKm.ok) {
-    return rangeKm;
-  }
-
-  const maxSpeedKph = validateNumberField(
-    details.maxSpeedKph,
-    'Max speed (km/h)',
-    {
-      min: 0,
-    }
-  );
-
-  if (!maxSpeedKph.ok) {
-    return maxSpeedKph;
-  }
-
-  const lastServiceDate = validateDateField(
-    details.lastServiceDate,
-    'Last service date'
-  );
-
-  if (!lastServiceDate.ok) {
-    return lastServiceDate;
-  }
-
-  const availabilityNote = normalizeText(details.availabilityNote);
-
-  if (!availabilityNote) {
-    return {
-      ok: false,
-      message: 'Availability note is required.',
-    };
-  }
-
   return {
     ok: true,
     value: {
@@ -280,20 +188,13 @@ function validateScooterPayload(input) {
         oneDay: oneDay.value,
         oneWeek: oneWeek.value,
       },
-      details: {
-        displayName,
-        model,
-        batteryLevel: Math.round(batteryLevel.value),
-        rangeKm: Math.round(rangeKm.value),
-        maxSpeedKph: Math.round(maxSpeedKph.value),
-        lastServiceDate: lastServiceDate.value,
-        availabilityNote,
-      },
     },
   };
 }
 
 module.exports = {
-  scooterStatuses,
+  SCOOTER_ID_PATTERN,
+  SCOOTER_STATUSES,
+  normalizeId,
   validateScooterPayload,
 };

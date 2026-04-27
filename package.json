@@ -4,7 +4,8 @@
   "scripts": {
     "format": "prettier --write .",
     "db:init": "node src/backend/db/init.js",
-    "dev": "vite src/frontend"
+    "dev": "vite src/frontend",
+    "test": "node --test tests"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",

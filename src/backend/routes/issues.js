@@ -1,10 +1,9 @@
 const express = require('express');
-const { parseSessionToken } = require('../auth-service');
+const { authenticateRequest, requireStaff } = require('../auth-middleware');
 const { normalizeId, normalizeText } = require('../booking-service');
 const {
   createIssue,
   findIssueById,
-  findUserById,
   getIssues,
   updateIssue,
 } = require('../database');
@@ -13,17 +12,6 @@ const router = express.Router();
 
 const ALLOWED_ISSUE_PRIORITIES = new Set(['low', 'high']);
 const ALLOWED_ISSUE_STATUSES = new Set(['open', 'resolved']);
-
-function extractSessionToken(authorizationHeader) {
-  const normalizedHeader = normalizeText(authorizationHeader);
-
-  if (!normalizedHeader) {
-    return '';
-  }
-
-  const bearerMatch = normalizedHeader.match(/^Bearer\s+(.+)$/i);
-  return bearerMatch ? bearerMatch[1].trim() : normalizedHeader;
-}
 
 function toIsoTimestamp(value) {
   if (!value) {
@@ -44,52 +32,6 @@ function mapIssueRow(row) {
     createdAt: toIsoTimestamp(row.created_at),
     updatedAt: toIsoTimestamp(row.updated_at),
   };
-}
-
-async function authenticateRequest(req, res) {
-  const authorizationHeader = req.get('authorization');
-
-  if (!authorizationHeader) {
-    res.status(401).json({
-      success: false,
-      error: 'Authorization header is required.',
-    });
-    return null;
-  }
-
-  const session = parseSessionToken(extractSessionToken(authorizationHeader));
-
-  if (!session) {
-    res.status(401).json({
-      success: false,
-      error: 'Invalid session token.',
-    });
-    return null;
-  }
-
-  const user = await findUserById(session.userId);
-
-  if (!user) {
-    res.status(401).json({
-      success: false,
-      error: 'Invalid session token.',
-    });
-    return null;
-  }
-
-  return user;
-}
-
-function requireStaff(res, user) {
-  if (!user || user.user_type !== 'staff') {
-    res.status(403).json({
-      success: false,
-      error: 'Staff access required.',
-    });
-    return false;
-  }
-
-  return true;
 }
 
 function parseIssueId(rawId) {

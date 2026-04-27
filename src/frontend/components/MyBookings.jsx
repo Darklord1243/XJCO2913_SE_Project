@@ -144,9 +144,8 @@ export default function MyBookings({ session, refreshKey }) {
   if (!token) {
     return (
       <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide">
+        <article className="panel panel-accent panel-wide" data-id="ID8">
           <div className="panel-header">
-            <p className="panel-kicker">ID8</p>
             <h2>My bookings</h2>
           </div>
           <p className="empty-state">
@@ -160,9 +159,8 @@ export default function MyBookings({ session, refreshKey }) {
   if (isLoading) {
     return (
       <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide">
+        <article className="panel panel-accent panel-wide" data-id="ID8">
           <div className="panel-header">
-            <p className="panel-kicker">ID8</p>
             <h2>My bookings</h2>
           </div>
           <p className="empty-state">Loading booking history...</p>
@@ -174,9 +172,8 @@ export default function MyBookings({ session, refreshKey }) {
   if (error) {
     return (
       <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide">
+        <article className="panel panel-accent panel-wide" data-id="ID8">
           <div className="panel-header">
-            <p className="panel-kicker">ID8</p>
             <h2>My bookings</h2>
           </div>
           <p className="message" data-state="error" role="alert">
@@ -192,9 +189,11 @@ export default function MyBookings({ session, refreshKey }) {
 
   return (
     <section className="my-bookings-view">
-      <article className="panel panel-accent panel-wide">
+      <article
+        className="panel panel-accent panel-wide"
+        data-id="ID8-ID11-ID12"
+      >
         <div className="panel-header">
-          <p className="panel-kicker">ID8 · ID12 · ID11</p>
           <h2>My bookings</h2>
         </div>
 

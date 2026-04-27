@@ -1,8 +1,8 @@
 const crypto = require('node:crypto');
+const { normalizeUserType } = require('./roles');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
-const ALLOWED_USER_TYPES = new Set(['standard', 'student', 'senior']);
 
 function normalizeEmail(value) {
   return String(value || '')
@@ -36,6 +36,7 @@ function validateRegistrationInput(payload) {
   const fullName = sanitizeName(payload?.fullName);
   const email = normalizeEmail(payload?.email);
   const password = String(payload?.password || '');
+  const rawConfirmPassword = payload?.confirmPassword;
 
   if (fullName.length < 2) {
     return {
@@ -56,6 +57,20 @@ function validateRegistrationInput(payload) {
       ok: false,
       message: `Password must contain at least ${MIN_PASSWORD_LENGTH} characters.`,
     };
+  }
+
+  // Defense-in-depth: if the client sends `confirmPassword`, enforce the
+  // match server-side too. We accept registrations without it for backwards
+  // compatibility with existing API consumers.
+  if (rawConfirmPassword !== undefined && rawConfirmPassword !== null) {
+    const confirmPassword = String(rawConfirmPassword);
+
+    if (confirmPassword !== password) {
+      return {
+        ok: false,
+        message: 'Password and confirmation do not match.',
+      };
+    }
   }
 
   return {
@@ -89,29 +104,21 @@ function validateLoginInput(payload) {
 }
 
 function toPublicUser(user) {
-  const normalizedUserType = ALLOWED_USER_TYPES.has(user?.user_type)
-    ? user.user_type
-    : 'standard';
-
   return {
     id: user.id,
     fullName: user.full_name,
     email: user.email,
-    userType: normalizedUserType,
+    userType: normalizeUserType(user?.user_type),
     createdAt: user.created_at,
   };
 }
 
 function createSessionToken(user) {
-  const normalizedUserType = ALLOWED_USER_TYPES.has(user?.user_type)
-    ? user.user_type
-    : 'standard';
-
   const payload = JSON.stringify({
     email: user.email,
     issuedAt: new Date().toISOString(),
     userId: user.id,
-    userType: normalizedUserType,
+    userType: normalizeUserType(user?.user_type),
   });
 
   return Buffer.from(payload, 'utf8').toString('base64url');
@@ -141,9 +148,7 @@ function parseSessionToken(token) {
       email: payload.email,
       issuedAt: payload.issuedAt || null,
       userId: payload.userId,
-      userType: ALLOWED_USER_TYPES.has(payload.userType)
-        ? payload.userType
-        : 'standard',
+      userType: normalizeUserType(payload.userType),
     };
   } catch (_error) {
     return null;
