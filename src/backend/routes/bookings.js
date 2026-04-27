@@ -1,6 +1,7 @@
 const express = require('express');
 const { parseSessionToken } = require('../auth-service');
 const {
+  calculateWeeklyUserHours,
   createBookingInTransaction,
   durationCodes,
   normalizeId,
@@ -9,8 +10,16 @@ const {
   simulatePayment,
   validatePaymentPayload,
 } = require('../booking-service');
-const { findUserById } = require('../database');
+const { findUserById, transactionMutex } = require('../database');
 const db = require('../db/connection');
+
+const DISCOUNTED_USER_TYPES = new Set(['student', 'senior']);
+const FREQUENT_USER_HOURS_THRESHOLD = 8;
+const DISCOUNT_MULTIPLIER = 0.8;
+
+function roundToTwoDecimals(value) {
+  return Math.round(value * 100) / 100;
+}
 
 const router = express.Router();
 
@@ -223,7 +232,49 @@ router.post('/bookings', async (req, res) => {
       });
     }
 
-    const totalPrice = scooter[pricingColumnMap[durationCode]];
+    const baseTotalPrice = scooter[pricingColumnMap[durationCode]];
+
+    if (
+      typeof baseTotalPrice !== 'number' ||
+      !Number.isFinite(baseTotalPrice) ||
+      baseTotalPrice < 0
+    ) {
+      console.error(
+        `POST /api/bookings: invalid base price for scooter=${scooterId} duration=${durationCode}`
+      );
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to determine booking price.',
+      });
+    }
+
+    const userType =
+      typeof user.user_type === 'string' ? user.user_type : 'standard';
+
+    let weeklyHours = 0;
+
+    try {
+      weeklyHours = await calculateWeeklyUserHours({
+        dbAll,
+        userId: user.id,
+      });
+    } catch (weeklyHoursError) {
+      console.error(
+        `POST /api/bookings: failed to compute weekly hours for userId=${user.id}:`,
+        weeklyHoursError
+      );
+      throw weeklyHoursError;
+    }
+
+    const isDiscountedUserType = DISCOUNTED_USER_TYPES.has(userType);
+    const isFrequentUser = weeklyHours >= FREQUENT_USER_HOURS_THRESHOLD;
+    const discountApplied = isDiscountedUserType || isFrequentUser;
+
+    const originalPrice = roundToTwoDecimals(baseTotalPrice);
+    const totalPrice = discountApplied
+      ? roundToTwoDecimals(baseTotalPrice * DISCOUNT_MULTIPLIER)
+      : originalPrice;
+
     const paymentValidation = validatePaymentPayload(req.body?.payment);
 
     if (!paymentValidation.ok) {
@@ -252,6 +303,7 @@ router.post('/bookings', async (req, res) => {
         scooterId,
         durationCode,
         totalPrice,
+        transactionMutex,
       });
     } catch (transactionError) {
       if (transactionError.statusCode) {
@@ -271,6 +323,8 @@ router.post('/bookings', async (req, res) => {
         paymentStatus: paymentResult.value.paymentStatus,
         paymentReference: paymentResult.value.paymentReference,
         scooterStatus: 'in_use',
+        discountApplied,
+        originalPrice,
       },
     });
   } catch (error) {
@@ -331,32 +385,37 @@ router.patch('/bookings/:bookingId/cancel', async (req, res) => {
       });
     }
 
-    await dbRun('BEGIN TRANSACTION');
+    await transactionMutex.runExclusive(async () => {
+      await dbRun('BEGIN TRANSACTION');
 
-    try {
-      await dbRun(
-        `UPDATE bookings
-         SET status = 'completed', updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?;`,
-        [bookingId]
-      );
-
-      await dbRun(
-        `UPDATE scooters
-         SET status = 'available', updated_at = CURRENT_TIMESTAMP
-         WHERE scooter_id = ?;`,
-        [booking.scooter_id]
-      );
-
-      await dbRun('COMMIT');
-    } catch (txError) {
       try {
-        await dbRun('ROLLBACK');
-      } catch (_rollbackError) {
-        /* swallow */
+        await dbRun(
+          `UPDATE bookings
+           SET status = 'completed', updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?;`,
+          [bookingId]
+        );
+
+        await dbRun(
+          `UPDATE scooters
+           SET status = 'available', updated_at = CURRENT_TIMESTAMP
+           WHERE scooter_id = ?;`,
+          [booking.scooter_id]
+        );
+
+        await dbRun('COMMIT');
+      } catch (txError) {
+        try {
+          await dbRun('ROLLBACK');
+        } catch (rollbackError) {
+          console.error(
+            'Cancel booking transaction rollback failed:',
+            rollbackError
+          );
+        }
+        throw txError;
       }
-      throw txError;
-    }
+    });
 
     const updated = await dbGet(
       `SELECT id, scooter_id, duration_code, total_price, status,

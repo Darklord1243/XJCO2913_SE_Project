@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { requestJson } from '../utils/api';
 
 const SCOOTERS_ENDPOINT = 'http://127.0.0.1:3000/api/scooters';
 
@@ -16,15 +17,7 @@ export function useScooters() {
     setError(null);
 
     try {
-      const response = await fetch(SCOOTERS_ENDPOINT, { signal });
-
-      if (!response.ok) {
-        throw buildContractError(
-          `Request failed with status ${response.status}`
-        );
-      }
-
-      const payload = await response.json();
+      const payload = await requestJson(SCOOTERS_ENDPOINT, { signal });
 
       if (
         !payload ||

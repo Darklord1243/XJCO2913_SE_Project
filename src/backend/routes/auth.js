@@ -10,6 +10,7 @@ const {
 const { createUser, findUserByEmail } = require('../database');
 
 const router = express.Router();
+const ALLOWED_USER_TYPES = new Set(['standard', 'student', 'senior']);
 
 router.post('/register', async (req, res) => {
   const validation = validateRegistrationInput(req.body || {});
@@ -23,6 +24,12 @@ router.post('/register', async (req, res) => {
 
   try {
     const { email, fullName, password } = validation.value;
+    const rawUserType = String(req.body?.userType || '')
+      .trim()
+      .toLowerCase();
+    const userType = ALLOWED_USER_TYPES.has(rawUserType)
+      ? rawUserType
+      : 'standard';
     const existingUser = await findUserByEmail(email);
 
     if (existingUser) {
@@ -36,6 +43,7 @@ router.post('/register', async (req, res) => {
     const user = await createUser({
       email,
       fullName,
+      userType,
       passwordHash,
       passwordSalt,
     });

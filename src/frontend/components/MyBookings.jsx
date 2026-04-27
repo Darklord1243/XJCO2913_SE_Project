@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useBookings } from '../hooks/useBookings';
 import { getSessionToken } from '../session';
+import { requestJson } from '../utils/api';
+import { formatCurrency } from '../utils/currency';
 
 const API_BASE = 'http://127.0.0.1:3000/api';
 
@@ -12,15 +14,6 @@ const DURATION_LABELS = {
 };
 
 const DURATION_ORDER = ['oneHour', 'fourHours', 'oneDay', 'oneWeek'];
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 function formatDateTime(value) {
   if (!value) {
@@ -39,23 +32,6 @@ function toStatusLabel(status) {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
-  let payload = null;
-
-  try {
-    payload = await response.json();
-  } catch (_error) {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(payload?.error || payload?.message || 'Request failed.');
-  }
-
-  return payload;
 }
 
 function longerDurations(currentCode) {

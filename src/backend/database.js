@@ -1,6 +1,51 @@
 const path = require('path');
 const db = require('./db/connection');
 
+class AsyncMutex {
+  constructor() {
+    this._locked = false;
+    this._queue = [];
+  }
+
+  acquire() {
+    return new Promise((resolve) => {
+      const release = () => {
+        const nextResolver = this._queue.shift();
+
+        if (nextResolver) {
+          nextResolver(release);
+          return;
+        }
+
+        this._locked = false;
+      };
+
+      if (this._locked) {
+        this._queue.push(resolve);
+        return;
+      }
+
+      this._locked = true;
+      resolve(release);
+    });
+  }
+
+  async runExclusive(work) {
+    const release = await this.acquire();
+
+    try {
+      return await work();
+    } catch (error) {
+      console.error('AsyncMutex protected operation failed:', error);
+      throw error;
+    } finally {
+      release();
+    }
+  }
+}
+
+const transactionMutex = new AsyncMutex();
+
 function resolveDatabasePath() {
   return (
     process.env.SQLITE_DB_PATH ||
@@ -40,7 +85,7 @@ function dbRun(sql, params = []) {
 async function findUserByEmail(email) {
   return dbGet(
     `
-      SELECT id, full_name, email, password_salt, password_hash, created_at
+      SELECT id, full_name, email, user_type, password_salt, password_hash, created_at
       FROM users
       WHERE email = ?;
     `,
@@ -51,7 +96,7 @@ async function findUserByEmail(email) {
 async function findUserById(id) {
   return dbGet(
     `
-      SELECT id, full_name, email, password_salt, password_hash, created_at
+      SELECT id, full_name, email, user_type, password_salt, password_hash, created_at
       FROM users
       WHERE id = ?;
     `,
@@ -59,18 +104,24 @@ async function findUserById(id) {
   );
 }
 
-async function createUser({ fullName, email, passwordSalt, passwordHash }) {
+async function createUser({
+  fullName,
+  email,
+  userType = 'standard',
+  passwordSalt,
+  passwordHash,
+}) {
   const result = await dbRun(
     `
-      INSERT INTO users (full_name, email, password_salt, password_hash)
-      VALUES (?, ?, ?, ?);
+      INSERT INTO users (full_name, email, user_type, password_salt, password_hash)
+      VALUES (?, ?, ?, ?, ?);
     `,
-    [fullName, email, passwordSalt, passwordHash]
+    [fullName, email, userType, passwordSalt, passwordHash]
   );
 
   return dbGet(
     `
-      SELECT id, full_name, email, password_salt, password_hash, created_at
+      SELECT id, full_name, email, user_type, password_salt, password_hash, created_at
       FROM users
       WHERE id = ?;
     `,
@@ -79,8 +130,10 @@ async function createUser({ fullName, email, passwordSalt, passwordHash }) {
 }
 
 module.exports = {
+  AsyncMutex,
   createUser,
   findUserByEmail,
   findUserById,
   resolveDatabasePath,
+  transactionMutex,
 };

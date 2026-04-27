@@ -8,6 +8,12 @@ const pricingColumnMap = {
   oneDay: 'one_day',
   oneWeek: 'one_week',
 };
+const durationHoursMap = {
+  oneHour: 1,
+  fourHours: 4,
+  oneDay: 24,
+  oneWeek: 168,
+};
 
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -127,79 +133,155 @@ async function createBookingInTransaction({
   scooterId,
   durationCode,
   totalPrice,
+  transactionMutex,
 }) {
-  await dbRun('BEGIN TRANSACTION');
+  const runInLock =
+    transactionMutex && typeof transactionMutex.runExclusive === 'function'
+      ? (callback) => transactionMutex.runExclusive(callback)
+      : async (callback) => callback();
+
+  return runInLock(async () => {
+    await dbRun('BEGIN TRANSACTION');
+
+    try {
+      const scooterUpdate = await dbRun(
+        `
+          UPDATE scooters
+          SET
+            status = 'in_use',
+            updated_at = CURRENT_TIMESTAMP
+          WHERE scooter_id = ? AND status = 'available';
+        `,
+        [scooterId]
+      );
+
+      if (scooterUpdate.changes !== 1) {
+        throw buildClientError(409, 'Scooter is not available for booking.');
+      }
+
+      const bookingInsert = await dbRun(
+        `
+          INSERT INTO bookings (
+            user_id,
+            scooter_id,
+            duration_code,
+            total_price,
+            status
+          )
+          VALUES (?, ?, ?, ?, 'active');
+        `,
+        [userId, scooterId, durationCode, totalPrice]
+      );
+
+      const createdBooking = await dbGet(
+        `
+          SELECT
+            id,
+            scooter_id,
+            duration_code,
+            total_price,
+            status,
+            created_at,
+            updated_at
+          FROM bookings
+          WHERE id = ?;
+        `,
+        [bookingInsert.lastID]
+      );
+
+      if (!createdBooking) {
+        throw new Error('Failed to load booking row after insert.');
+      }
+
+      await dbRun('COMMIT');
+
+      return createdBooking;
+    } catch (error) {
+      try {
+        await dbRun('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Booking transaction rollback failed:', rollbackError);
+      }
+
+      throw error;
+    }
+  });
+}
+
+/**
+ * Calculates the total hire hours for a user across active/completed bookings
+ * created within the last 7 days. Used to evaluate the 'frequent user'
+ * discount eligibility (>= 8 hours).
+ *
+ * Performs strict input validation and ignores rows whose duration_code is
+ * not a known mapping, so unexpected DB values cannot inflate totals.
+ */
+async function calculateWeeklyUserHours({ dbAll, userId } = {}) {
+  if (typeof dbAll !== 'function') {
+    throw new TypeError('calculateWeeklyUserHours requires a dbAll function.');
+  }
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    throw new TypeError(
+      'calculateWeeklyUserHours requires a positive integer userId.'
+    );
+  }
+
+  let rows;
 
   try {
-    const scooterUpdate = await dbRun(
+    rows = await dbAll(
       `
-        UPDATE scooters
-        SET
-          status = 'in_use',
-          updated_at = CURRENT_TIMESTAMP
-        WHERE scooter_id = ? AND status = 'available';
-      `,
-      [scooterId]
-    );
-
-    if (scooterUpdate.changes !== 1) {
-      throw buildClientError(409, 'Scooter is not available for booking.');
-    }
-
-    const bookingInsert = await dbRun(
-      `
-        INSERT INTO bookings (
-          user_id,
-          scooter_id,
-          duration_code,
-          total_price,
-          status
-        )
-        VALUES (?, ?, ?, ?, 'active');
-      `,
-      [userId, scooterId, durationCode, totalPrice]
-    );
-
-    const createdBooking = await dbGet(
-      `
-        SELECT
-          id,
-          scooter_id,
-          duration_code,
-          total_price,
-          status,
-          created_at,
-          updated_at
+        SELECT duration_code
         FROM bookings
-        WHERE id = ?;
+        WHERE user_id = ?
+          AND status IN ('active', 'completed')
+          AND created_at >= datetime('now', '-7 days');
       `,
-      [bookingInsert.lastID]
+      [userId]
     );
-
-    if (!createdBooking) {
-      throw new Error('Failed to load booking row after insert.');
-    }
-
-    await dbRun('COMMIT');
-
-    return createdBooking;
   } catch (error) {
-    try {
-      await dbRun('ROLLBACK');
-    } catch (rollbackError) {
-      console.error('Booking transaction rollback failed:', rollbackError);
-    }
-
+    console.error(
+      `calculateWeeklyUserHours: query failed for userId=${userId}:`,
+      error
+    );
     throw error;
   }
+
+  if (!Array.isArray(rows)) {
+    return 0;
+  }
+
+  let totalHours = 0;
+
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') {
+      continue;
+    }
+
+    const durationCode = row.duration_code;
+
+    if (
+      typeof durationCode !== 'string' ||
+      !Object.prototype.hasOwnProperty.call(durationHoursMap, durationCode)
+    ) {
+      continue;
+    }
+
+    totalHours += durationHoursMap[durationCode];
+  }
+
+  return totalHours;
 }
 
 module.exports = {
+  calculateWeeklyUserHours,
+  createBookingInTransaction,
   durationCodes,
+  durationHoursMap,
   normalizeId,
   normalizeText,
   pricingColumnMap,
   simulatePayment,
   validatePaymentPayload,
-  createBookingInTransaction,
 };
