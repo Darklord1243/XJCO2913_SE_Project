@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   user_type TEXT NOT NULL DEFAULT 'standard' CHECK (
-    user_type IN ('standard', 'student', 'senior')
+    user_type IN ('standard', 'student', 'senior', 'staff')
   ),
   password_salt TEXT NOT NULL,
   password_hash TEXT NOT NULL,
@@ -48,7 +48,23 @@ CREATE TABLE IF NOT EXISTS bookings (
   FOREIGN KEY (scooter_id) REFERENCES scooters (scooter_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS issues (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  scooter_id TEXT NOT NULL,
+  description TEXT NOT NULL,
+  priority TEXT NOT NULL DEFAULT 'low' CHECK (priority IN ('low', 'high')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  FOREIGN KEY (scooter_id) REFERENCES scooters (scooter_id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_scooters_status ON scooters (status);
 CREATE INDEX IF NOT EXISTS idx_scooters_location ON scooters (latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings (user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_scooter_id ON bookings (scooter_id);
+CREATE INDEX IF NOT EXISTS idx_issues_user_id ON issues (user_id);
+CREATE INDEX IF NOT EXISTS idx_issues_scooter_id ON issues (scooter_id);
+CREATE INDEX IF NOT EXISTS idx_issues_status ON issues (status);

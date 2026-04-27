@@ -67,6 +67,146 @@ Expected response format:
 }
 ```
 
+## Phase 1: Advanced Business Logic & Discounts
+
+### User types in schema and session payload
+
+The `users` table now includes a `user_type` field used for pricing eligibility:
+
+- Allowed values: `standard`, `student`, `senior`
+- Default value: `standard`
+- Enforced at database level via `CHECK` constraint
+
+Current schema shape (relevant columns):
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  user_type TEXT NOT NULL DEFAULT 'standard' CHECK (
+    user_type IN ('standard', 'student', 'senior')
+  ),
+  password_salt TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+After login/register, the session token payload includes `userType` so backend and frontend can reason about profile-based pricing:
+
+```json
+{
+  "userId": 12,
+  "email": "rider@example.com",
+  "userType": "student"
+}
+```
+
+### Pricing rules and discount eligibility
+
+Booking pricing supports a single flat discount model:
+
+- Discount rate: **20% off** the base selected plan price.
+- Discount is **non-stacking**. Even if multiple paths are true, only one 20% discount is applied.
+
+Eligibility paths (OR logic):
+
+1. **Student** user (`user_type = 'student'`)
+2. **Senior** user (`user_type = 'senior'`)
+3. **Frequent User**: user has **8+ cumulative booking hours** created in the **last 7 days**
+
+The backend computes a base/original price first, then applies the 20% reduction once when any eligibility condition is met.
+
+### POST `/api/bookings` response additions
+
+Booking creation responses now include discount visibility fields:
+
+- `discountApplied` (`boolean`): whether the 20% discount path was triggered
+- `originalPrice` (`number`): the pre-discount base price used before applying discount logic
+
+Example (abridged):
+
+```json
+{
+  "success": true,
+  "data": {
+    "bookingId": 101,
+    "scooterId": "ESC-001",
+    "durationCode": "fourHours",
+    "originalPrice": 15,
+    "totalPrice": 12,
+    "discountApplied": true,
+    "status": "active"
+  }
+}
+```
+
+### Business logic note: cancelled bookings and frequent-user hours
+
+Current system behavior is intentional:
+
+- Cancelled bookings are persisted as `status = 'completed'`.
+- These completed/cancelled records are included in the 7-day cumulative-hours calculation.
+
+This is a deliberate product decision to reward broader platform engagement, not only currently active hires.
+
+## Phase 2: Feedback & Escalation Pipeline
+
+### Issues schema
+
+The platform now persists rider-reported faults in the `issues` table. This table supports escalation and resolution workflows while preserving audit timestamps.
+
+- `id`: auto-increment primary key
+- `user_id`: reporting user (`FOREIGN KEY` to `users.id`)
+- `scooter_id`: reported scooter (`FOREIGN KEY` to `scooters.scooter_id`)
+- `description`: free-text fault details from the reporting user
+- `priority`: `low` or `high` (`CHECK` constrained, default `low`)
+- `status`: `open` or `resolved` (`CHECK` constrained, default `open`)
+- `created_at`, `updated_at`: automatic lifecycle timestamps
+
+### Issues API endpoints
+
+`POST /api/issues` (authenticated user fault reporting)
+- Purpose: submit a new scooter issue report.
+- Auth: requires a valid session token.
+- Body: `scooterId`, `description`.
+- Behavior: creates issue with default `priority = low` and `status = open`.
+
+`GET /api/issues` (staff queryable list)
+- Purpose: return issue list for staff triage and monitoring.
+- Auth: requires a valid session token and staff role.
+- Query params:
+  - `status` (optional): `open` or `resolved`
+  - `priority` (optional): `low` or `high` (use `priority=high` for escalated-only view)
+- Behavior: returns all issues when no filters are provided, otherwise filtered subset.
+
+`PATCH /api/issues/:id/priority` (staff escalation route)
+- Purpose: escalate or otherwise update issue priority (e.g., `low -> high`).
+- Auth: requires a valid session token and staff role.
+- Body: `priority` with allowed values `low` or `high`.
+- Behavior: validates issue exists, updates priority, and refreshes `updated_at`.
+
+`PATCH /api/issues/:id/status` (staff resolution route)
+- Purpose: resolve issue state (e.g., `open -> resolved`) or update status.
+- Auth: requires a valid session token and staff role.
+- Body: `status` with allowed values `open` or `resolved`.
+- Behavior: validates issue exists, updates status, and refreshes `updated_at`.
+
+### RBAC and security constraints
+
+The Issues staff-management routes enforce role-based access control:
+
+- `GET /api/issues`
+- `PATCH /api/issues/:id/priority`
+- `PATCH /api/issues/:id/status`
+
+Each route requires:
+1. A valid `Authorization` session token.
+2. The token's associated user record to have `user_type === 'staff'`.
+
+If a user is authenticated but not staff, the API returns `403 Forbidden`. This implements the project's non-functional security constraint that escalation and resolution controls are restricted to staff operators.
+
 ## Local Run Command Set (Copy/Paste)
 Put this command set in your terminal exactly as shown.
 

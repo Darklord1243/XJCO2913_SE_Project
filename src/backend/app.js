@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const authRouter = require('./routes/auth');
 const bookingsRouter = require('./routes/bookings');
+const issuesRouter = require('./routes/issues');
 const scootersRouter = require('./routes/scooters');
 
 function createApp() {
@@ -12,6 +13,7 @@ function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api', scootersRouter);
   app.use('/api', bookingsRouter);
+  app.use('/api', issuesRouter);
 
   return app;
 }
