@@ -32,7 +32,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <main className="shell app-layout">
+      <div className="shell app-layout">
         {session ? (
           <Routes>
             <Route path="/" element={<Navigate to="/fleet" replace />} />
@@ -74,7 +74,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         )}
-      </main>
+      </div>
     </BrowserRouter>
   );
 }
