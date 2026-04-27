@@ -141,12 +141,14 @@ export default function Income({ session }) {
   if (!token) {
     return (
       <section className="income-view">
-        <article className="panel panel-accent panel-wide">
+        <article className="panel panel-accent panel-wide" data-id="ID19">
           <div className="panel-header">
-            <p className="panel-kicker">ID19</p>
+            <p className="panel-kicker">Admin</p>
             <h2>Weekly income</h2>
           </div>
-          <p className="empty-state">Sign in to view revenue analytics.</p>
+          <p className="empty-state">
+            Sign in as an administrator to view revenue analytics.
+          </p>
         </article>
       </section>
     );
@@ -154,9 +156,9 @@ export default function Income({ session }) {
 
   return (
     <section className="income-view">
-      <article className="panel panel-accent panel-wide">
+      <article className="panel panel-accent panel-wide" data-id="ID19">
         <div className="panel-header">
-          <p className="panel-kicker">ID19</p>
+          <p className="panel-kicker">Admin</p>
           <h2>Weekly income by rental option</h2>
         </div>
 
@@ -206,9 +208,12 @@ export default function Income({ session }) {
             </div>
 
             {chartData.length > 0 ? (
-              <figure className="income-chart" aria-label="Weekly income chart">
+              <figure
+                className="income-chart"
+                aria-label="Weekly income chart"
+                data-id="ID21"
+              >
                 <figcaption className="income-chart__caption">
-                  <span className="panel-kicker">ID21</span>
                   <span className="income-chart__title">
                     Income by hire plan
                   </span>

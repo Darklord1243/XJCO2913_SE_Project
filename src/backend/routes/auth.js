@@ -8,9 +8,9 @@ const {
   verifyPassword,
 } = require('../auth-service');
 const { createUser, findUserByEmail } = require('../database');
+const { isSelfRegistrableUserType } = require('../roles');
 
 const router = express.Router();
-const ALLOWED_USER_TYPES = new Set(['standard', 'student', 'senior']);
 
 router.post('/register', async (req, res) => {
   const validation = validateRegistrationInput(req.body || {});
@@ -27,7 +27,9 @@ router.post('/register', async (req, res) => {
     const rawUserType = String(req.body?.userType || '')
       .trim()
       .toLowerCase();
-    const userType = ALLOWED_USER_TYPES.has(rawUserType)
+    // Hard guarantee: privileged roles (`staff`, `admin`) can never be
+    // self-registered through this public endpoint.
+    const userType = isSelfRegistrableUserType(rawUserType)
       ? rawUserType
       : 'standard';
     const existingUser = await findUserByEmail(email);

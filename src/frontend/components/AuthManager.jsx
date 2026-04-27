@@ -3,17 +3,61 @@ import { requestJson } from '../utils/api';
 
 const REGISTER_ENDPOINT = 'http://127.0.0.1:3000/api/auth/register';
 const LOGIN_ENDPOINT = 'http://127.0.0.1:3000/api/auth/login';
+const MIN_PASSWORD_LENGTH = 8;
+
+const initialRegisterForm = {
+  fullName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+};
+
+const initialLoginForm = {
+  email: '',
+  password: '',
+};
+
+function PasswordField({
+  id,
+  name,
+  value,
+  onChange,
+  isVisible,
+  onToggleVisibility,
+  required = true,
+  minLength,
+  autoComplete,
+  ariaInvalid,
+}) {
+  return (
+    <div className="password-field">
+      <input
+        id={id}
+        name={name}
+        type={isVisible ? 'text' : 'password'}
+        autoComplete={autoComplete}
+        minLength={minLength}
+        value={value}
+        onChange={onChange}
+        required={required}
+        aria-invalid={ariaInvalid || undefined}
+      />
+      <button
+        type="button"
+        className="password-field__toggle secondary"
+        onClick={onToggleVisibility}
+        aria-pressed={isVisible}
+        aria-label={isVisible ? 'Hide password' : 'Show password'}
+      >
+        {isVisible ? 'Hide' : 'Show'}
+      </button>
+    </div>
+  );
+}
 
 export default function AuthManager({ session, onSessionChange }) {
-  const [registerForm, setRegisterForm] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-  });
-  const [loginForm, setLoginForm] = useState({
-    email: '',
-    password: '',
-  });
+  const [registerForm, setRegisterForm] = useState(initialRegisterForm);
+  const [loginForm, setLoginForm] = useState(initialLoginForm);
   const [registerMessage, setRegisterMessage] = useState({
     text: '',
     state: '',
@@ -22,6 +66,12 @@ export default function AuthManager({ session, onSessionChange }) {
     text: '',
     state: '',
   });
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] =
+    useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [isSubmittingRegister, setIsSubmittingRegister] = useState(false);
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
   const sessionView = useMemo(() => {
     if (!session) {
@@ -42,10 +92,32 @@ export default function AuthManager({ session, onSessionChange }) {
     };
   }, [session]);
 
+  const passwordMismatch =
+    registerForm.confirmPassword.length > 0 &&
+    registerForm.password !== registerForm.confirmPassword;
+
   async function handleRegisterSubmit(event) {
     event.preventDefault();
     setRegisterMessage({ text: '', state: '' });
     setLoginMessage({ text: '', state: '' });
+
+    if (registerForm.password.length < MIN_PASSWORD_LENGTH) {
+      setRegisterMessage({
+        text: `Password must contain at least ${MIN_PASSWORD_LENGTH} characters.`,
+        state: 'error',
+      });
+      return;
+    }
+
+    if (registerForm.password !== registerForm.confirmPassword) {
+      setRegisterMessage({
+        text: 'Password and confirmation do not match.',
+        state: 'error',
+      });
+      return;
+    }
+
+    setIsSubmittingRegister(true);
 
     try {
       const result = await requestJson(REGISTER_ENDPOINT, {
@@ -53,7 +125,12 @@ export default function AuthManager({ session, onSessionChange }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(registerForm),
+        body: JSON.stringify({
+          fullName: registerForm.fullName,
+          email: registerForm.email,
+          password: registerForm.password,
+          confirmPassword: registerForm.confirmPassword,
+        }),
       });
 
       onSessionChange(result.data);
@@ -61,17 +138,17 @@ export default function AuthManager({ session, onSessionChange }) {
         text: result.message || 'Account created successfully.',
         state: 'success',
       });
-      setRegisterForm({
-        fullName: '',
-        email: '',
-        password: '',
-      });
+      setRegisterForm(initialRegisterForm);
+      setShowRegisterPassword(false);
+      setShowRegisterConfirmPassword(false);
     } catch (error) {
       console.error('Register request failed:', error);
       setRegisterMessage({
         text: error?.message || 'Unable to create account.',
         state: 'error',
       });
+    } finally {
+      setIsSubmittingRegister(false);
     }
   }
 
@@ -79,6 +156,7 @@ export default function AuthManager({ session, onSessionChange }) {
     event.preventDefault();
     setRegisterMessage({ text: '', state: '' });
     setLoginMessage({ text: '', state: '' });
+    setIsSubmittingLogin(true);
 
     try {
       const result = await requestJson(LOGIN_ENDPOINT, {
@@ -94,16 +172,16 @@ export default function AuthManager({ session, onSessionChange }) {
         text: result.message || 'Login successful.',
         state: 'success',
       });
-      setLoginForm({
-        email: '',
-        password: '',
-      });
+      setLoginForm(initialLoginForm);
+      setShowLoginPassword(false);
     } catch (error) {
       console.error('Login request failed:', error);
       setLoginMessage({
         text: error?.message || 'Unable to log in.',
         state: 'error',
       });
+    } finally {
+      setIsSubmittingLogin(false);
     }
   }
 
@@ -121,7 +199,7 @@ export default function AuthManager({ session, onSessionChange }) {
           <h2>New customer</h2>
         </div>
 
-        <form className="form-grid" onSubmit={handleRegisterSubmit}>
+        <form className="form-grid" onSubmit={handleRegisterSubmit} noValidate>
           <label htmlFor="register-full-name">
             Full name
             <input
@@ -158,11 +236,11 @@ export default function AuthManager({ session, onSessionChange }) {
 
           <label htmlFor="register-password">
             Password
-            <input
+            <PasswordField
               id="register-password"
               name="password"
-              type="password"
-              minLength={8}
+              autoComplete="new-password"
+              minLength={MIN_PASSWORD_LENGTH}
               value={registerForm.password}
               onChange={(event) =>
                 setRegisterForm((current) => ({
@@ -170,11 +248,51 @@ export default function AuthManager({ session, onSessionChange }) {
                   password: event.target.value,
                 }))
               }
-              required
+              isVisible={showRegisterPassword}
+              onToggleVisibility={() =>
+                setShowRegisterPassword((current) => !current)
+              }
             />
           </label>
 
-          <button type="submit">Create account</button>
+          <label htmlFor="register-confirm-password">
+            Confirm password
+            <PasswordField
+              id="register-confirm-password"
+              name="confirmPassword"
+              autoComplete="new-password"
+              minLength={MIN_PASSWORD_LENGTH}
+              value={registerForm.confirmPassword}
+              onChange={(event) =>
+                setRegisterForm((current) => ({
+                  ...current,
+                  confirmPassword: event.target.value,
+                }))
+              }
+              isVisible={showRegisterConfirmPassword}
+              onToggleVisibility={() =>
+                setShowRegisterConfirmPassword((current) => !current)
+              }
+              ariaInvalid={passwordMismatch}
+            />
+            {passwordMismatch ? (
+              <span
+                className="message"
+                data-state="error"
+                role="alert"
+                aria-live="polite"
+              >
+                Passwords do not match.
+              </span>
+            ) : null}
+          </label>
+
+          <button
+            type="submit"
+            disabled={isSubmittingRegister || passwordMismatch}
+          >
+            {isSubmittingRegister ? 'Creating...' : 'Create account'}
+          </button>
         </form>
 
         <p
@@ -192,7 +310,7 @@ export default function AuthManager({ session, onSessionChange }) {
           <h2>Existing customer</h2>
         </div>
 
-        <form className="form-grid" onSubmit={handleLoginSubmit}>
+        <form className="form-grid" onSubmit={handleLoginSubmit} noValidate>
           <label htmlFor="login-email">
             Email
             <input
@@ -212,10 +330,10 @@ export default function AuthManager({ session, onSessionChange }) {
 
           <label htmlFor="login-password">
             Password
-            <input
+            <PasswordField
               id="login-password"
               name="password"
-              type="password"
+              autoComplete="current-password"
               value={loginForm.password}
               onChange={(event) =>
                 setLoginForm((current) => ({
@@ -223,11 +341,16 @@ export default function AuthManager({ session, onSessionChange }) {
                   password: event.target.value,
                 }))
               }
-              required
+              isVisible={showLoginPassword}
+              onToggleVisibility={() =>
+                setShowLoginPassword((current) => !current)
+              }
             />
           </label>
 
-          <button type="submit">Log in</button>
+          <button type="submit" disabled={isSubmittingLogin}>
+            {isSubmittingLogin ? 'Signing in...' : 'Log in'}
+          </button>
         </form>
 
         <p

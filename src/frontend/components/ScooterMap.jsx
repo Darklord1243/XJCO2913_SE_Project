@@ -154,9 +154,8 @@ export default function ScooterMap() {
 
   return (
     <section className="map-view">
-      <article className="panel panel-accent panel-wide">
+      <article className="panel panel-accent panel-wide" data-id="ID18">
         <div className="panel-header">
-          <p className="panel-kicker">ID18</p>
           <h2>Scooter locations</h2>
         </div>
 

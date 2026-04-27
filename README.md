@@ -71,11 +71,17 @@ Expected response format:
 
 ### User types in schema and session payload
 
-The `users` table now includes a `user_type` field used for pricing eligibility:
+The `users` table includes a `user_type` field used for both pricing
+eligibility and role-based access control. The role model is documented
+in detail under [Phase 4: Admin Mode + UX Hardening](#phase-4-admin-mode--ux-hardening).
 
-- Allowed values: `standard`, `student`, `senior`
+- Allowed values: `standard`, `student`, `senior`, `staff`, `admin`
 - Default value: `standard`
 - Enforced at database level via `CHECK` constraint
+- Self-registration via `POST /api/auth/register` is restricted to the
+  three regular customer roles (`standard`, `student`, `senior`). Staff
+  and admin accounts are provisioned out-of-band (see the bootstrap
+  flow in [Phase 4](#phase-4-admin-mode--ux-hardening)).
 
 Current schema shape (relevant columns):
 
@@ -85,7 +91,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   user_type TEXT NOT NULL DEFAULT 'standard' CHECK (
-    user_type IN ('standard', 'student', 'senior')
+    user_type IN ('standard', 'student', 'senior', 'staff', 'admin')
   ),
   password_salt TEXT NOT NULL,
   password_hash TEXT NOT NULL,
@@ -244,6 +250,217 @@ The frontend has been updated to better align with modern accessibility standard
 
 Collectively, these a11y enhancements strengthen conformance with modern web standards and improve usability for assistive-technology and keyboard-only users.
 
+## Phase 4: Admin Mode + UX Hardening
+
+### Canonical role model
+
+The platform now uses a single canonical role model defined in
+`src/backend/roles.js` (mirrored for the frontend by
+`src/frontend/roles.js`). Two helper sets matter most:
+
+- `REGULAR_USER_TYPES`: `standard`, `student`, `senior` &mdash; rider
+  accounts. Differ only in pricing eligibility.
+- `PRIVILEGED_USER_TYPES`: `staff`, `admin` &mdash; operator accounts.
+  `staff` retains issue triage capability (Phase 2). `admin` is the
+  superset role with access to income, fleet management, and bookings
+  oversight.
+
+Helpers used across the codebase:
+
+- `isAdmin(user)`: strict `user_type === 'admin'` check.
+- `hasStaffAccess(user)`: true for both `staff` and `admin`.
+- `normalizeUserType(value)`: defensive normalization that falls back
+  to `'standard'` for unknown / missing values, used both when
+  serializing public users and when parsing session tokens. This
+  prevents a crafted token from claiming an unknown privileged role.
+- `isSelfRegistrableUserType(value)`: gatekeeper used by
+  `POST /api/auth/register` so privileged roles cannot be created via
+  the public signup endpoint.
+
+### Default administrator bootstrap
+
+`npm run db:init` (which calls `src/backend/db/init.js`) seeds a
+default administrator account if and only if no admin user already
+exists. Re-running the init script never overwrites an existing admin.
+
+Defaults (override via environment variables):
+
+| Variable          | Default                  |
+| ----------------- | ------------------------ |
+| `ADMIN_EMAIL`     | `admin@escooter.local`   |
+| `ADMIN_NAME`      | `Platform Administrator` |
+| `ADMIN_PASSWORD`  | `AdminPass123!`          |
+
+Important: change `ADMIN_PASSWORD` for any non-development deployment.
+The default password is intentionally documented to make coursework
+review reproducible, not to be used in production.
+
+### Backend authorization changes
+
+Authorization is centralized in `src/backend/auth-middleware.js`.
+Routes import `authenticateRequest`, `requireAdmin`, and
+`requireStaff` rather than re-implementing token parsing inline.
+
+Newly admin-gated and added endpoints:
+
+| Method & Route                       | Required role | Purpose                                        |
+| ------------------------------------ | ------------- | ---------------------------------------------- |
+| `GET /api/bookings/income/weekly`    | `admin`       | Weekly income analytics (moved off rider UI). |
+| `POST /api/scooters`                 | `admin`       | Create a scooter (also seeds its pricing row). |
+| `PUT /api/scooters/:scooterId`       | `admin`       | Update scooter status / location / pricing.    |
+| `GET /api/admin/bookings`            | `admin`       | List/filter all bookings across the platform.  |
+
+The `POST /api/scooters` payload is identical to the `PUT` shape, with
+the request body validated by the shared
+`validateScooterPayload` helper in `src/backend/scooter-service.js`:
+
+```json
+{
+  "scooterId": "ESC-010",
+  "status": "available",
+  "location": {
+    "latitude": 53.8008,
+    "longitude": -1.5491,
+    "description": "City Centre Square"
+  },
+  "pricing": {
+    "oneHour": 5,
+    "fourHours": 15,
+    "oneDay": 30,
+    "oneWeek": 120
+  }
+}
+```
+
+Constraints enforced server-side (and surfaced verbatim to the UI on
+`400 Bad Request`):
+
+- `scooterId` must match `^[A-Z0-9-]{4,20}$`. The validator
+  uppercases and trims before checking, so user input like
+  `" esc-010 "` is normalized.
+- `status` must be one of `available`, `in_use`, `maintenance`, `offline`.
+- `latitude` must be in `[-90, 90]`, `longitude` in `[-180, 180]`.
+- `location.description` is required and trimmed.
+- All four pricing tiers must be finite numbers `>= 0`.
+
+A duplicate scooter ID returns `409 Conflict` and leaves both
+`scooters` and `scooter_pricing` rows untouched (the create path is
+wrapped in a single SQLite transaction with rollback on failure).
+
+`GET /api/admin/bookings` accepts optional query params:
+- `status`: `active` or `completed`
+- `scooterId`: filter by scooter
+- `userId`: filter by user
+
+The previously documented Issues routes (`GET /api/issues`,
+`PATCH /api/issues/:id/priority`, `PATCH /api/issues/:id/status`)
+continue to require staff-tier access (`staff` or `admin`).
+
+### Frontend route segmentation
+
+The application now renders different route trees and navigation
+menus depending on whether the active session is an admin
+(`isAdminSession(session)` from `src/frontend/roles.js`).
+
+Customer mode (regular users):
+- Landing path: `/map`
+- Nav order: `Map`, `Fleet`, `My Bookings` (Map deliberately first
+  for discovery; `Income` is removed from the rider surface).
+
+Admin mode:
+- Landing path: `/admin/bookings`
+- Nav order: `Bookings`, `Fleet Manage`, `Issues`, `Income`
+- Components: `AdminBookings.jsx`, `AdminFleet.jsx`,
+  `AdminIssues.jsx`, plus the existing `Income.jsx` reused under
+  `/admin/income`.
+- The `Fleet Manage` page now exposes both **Edit scooter** (per-row,
+  `PUT /api/scooters/:scooterId`) and **Add scooter** (panel-level
+  toggle, `POST /api/scooters`). The create form mirrors the edit
+  fields, plus a `Scooter ID` input. Client-side it pre-checks the ID
+  format / duplicate-against-cache, then defers to the server's
+  authoritative validation; the new row appears in the same list as
+  soon as `useScooters()` refetches.
+
+A role label is shown next to the brand in the navigation so the
+active mode is always visible at a glance.
+
+### Account-creation UX changes
+
+`AuthManager.jsx` now offers:
+
+- A confirm-password field on the registration form with client-side
+  match validation. The backend also enforces the match
+  defensively when `confirmPassword` is present in the payload (see
+  `validateRegistrationInput` in `src/backend/auth-service.js`).
+- Show/hide toggles on every password input on both login and
+  registration forms via the shared `PasswordField` component.
+
+### Payment simulator visibility
+
+The payment simulator instructions inside the booking confirmation
+modal are now gated behind a build-time flag in
+`src/frontend/components/ScooterList.jsx`:
+
+```js
+const SHOW_PAYMENT_SIMULATOR = Boolean(import.meta.env?.DEV);
+```
+
+This means the &ldquo;Payment simulator (dev only)&rdquo; copy is
+visible during `npm run dev` (Vite dev server) but disappears in
+production builds, so end users never see test-card guidance in a
+real release. The simulated booking flow itself is unchanged.
+
+### Visible internal ID markers removed
+
+The `IDx` text labels (e.g., `ID4`, `ID5`, `ID17`, `ID18`, `ID19`,
+`ID21`) that previously decorated user-facing panels have been
+removed from the rendered DOM. Where the markers were useful for QA,
+they are now exposed as non-rendered `data-id` attributes instead, so
+automated test selectors can still find them without polluting the
+visual output.
+
+### Deferred visual redesign
+
+A wider visual redesign is intentionally **not** part of this phase.
+RBAC, admin surfaces, and account-creation UX needed to stabilize
+first. Once the new admin and rider flows are validated, redesign
+can proceed against the now-segmented surface without re-litigating
+behavior.
+
+## Testing
+
+A `tests/` directory holds Node-native tests using the built-in
+`node:test` runner; no extra dependency is required.
+
+```bash
+npm test
+```
+
+Current coverage focuses on the security-critical primitives
+introduced in Phase 4:
+
+- Role helpers (`isAdmin`, `hasStaffAccess`, `normalizeUserType`,
+  `isSelfRegistrableUserType`) and the canonical role sets
+  (`tests/auth-rbac.test.js`).
+- `validateRegistrationInput` confirm-password handling (mismatched
+  rejection, backwards-compatible accept when omitted, short-password
+  rejection).
+- `parseSessionToken` / `createSessionToken` round-tripping admin
+  payloads and refusing to honor unknown roles (downgrades to
+  `standard`).
+- `toPublicUser` correctly preserving privileged roles.
+- `validateScooterPayload` accept path and every reject branch &mdash;
+  bad scooter ID format, unknown status, non-object location,
+  out-of-range lat/lng, empty description, missing pricing, negative
+  prices, non-numeric prices (`tests/scooter-service.test.js`). The
+  same helper is used by both `POST` and `PUT /api/scooters`, so these
+  cases lock in the shared contract.
+
+When extending RBAC, prefer adding cases to
+`tests/auth-rbac.test.js` rather than re-deriving role logic in new
+modules. Likewise, scooter create/update validation cases belong in
+`tests/scooter-service.test.js`.
+
 ## Local Run Command Set (Copy/Paste)
 Put this command set in your terminal exactly as shown.
 
@@ -292,4 +509,29 @@ ORDER BY s.scooter_id;
 ### 6) Run formatter before commit (project root)
 ```bash
 npm run format
+```
+
+### 7) Run unit tests (project root)
+```bash
+npm test
+```
+
+### 8) Bootstrap default administrator (project root, optional)
+The schema/seed commands in step 2 only create rider data. Run the
+init script to additionally seed the default administrator account
+documented in [Phase 4](#phase-4-admin-mode--ux-hardening):
+
+```bash
+node src/backend/db/init.js
+# or:
+npm run db:init
+```
+
+To use custom admin credentials instead of the documented defaults:
+
+```bash
+ADMIN_EMAIL=ops@example.com \
+ADMIN_NAME="Ops Admin" \
+ADMIN_PASSWORD="ChangeMeNow123!" \
+  node src/backend/db/init.js
 ```

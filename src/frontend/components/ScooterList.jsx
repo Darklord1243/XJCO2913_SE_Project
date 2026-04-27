@@ -5,6 +5,10 @@ import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
 const BOOKING_ENDPOINT = 'http://127.0.0.1:3000/api/bookings';
+// Vite exposes `import.meta.env.DEV` as `true` only in the dev/test
+// bundle. We use it to gate test-card simulator copy so production-style
+// builds never render those instructions to real customers.
+const SHOW_PAYMENT_SIMULATOR = Boolean(import.meta.env?.DEV);
 const defaultPaymentForm = {
   cardholderName: '',
   cardNumber: '',
@@ -228,9 +232,8 @@ export default function ScooterList({ session, onBookingCreated }) {
     return (
       <section className="scooter-list-view">
         <section className="pricing-layout">
-          <article className="panel panel-accent">
+          <article className="panel panel-accent" data-id="ID4">
             <div className="panel-header">
-              <p className="panel-kicker">ID4</p>
               <h2>View hire options and cost</h2>
             </div>
             <p
@@ -258,9 +261,8 @@ export default function ScooterList({ session, onBookingCreated }) {
     return (
       <section className="scooter-list-view">
         <section className="pricing-layout">
-          <article className="panel panel-accent">
+          <article className="panel panel-accent" data-id="ID4-ID17">
             <div className="panel-header">
-              <p className="panel-kicker">ID4 + ID17</p>
               <h2>Pricing and fleet availability</h2>
             </div>
             <p className="empty-state">
@@ -279,9 +281,8 @@ export default function ScooterList({ session, onBookingCreated }) {
   return (
     <section className="scooter-list-view">
       <section className="pricing-layout">
-        <article className="panel panel-accent">
+        <article className="panel panel-accent" data-id="ID4">
           <div className="panel-header">
-            <p className="panel-kicker">ID4</p>
             <h2>View hire options and cost</h2>
           </div>
           <div className="pricing-summary">
@@ -313,9 +314,9 @@ export default function ScooterList({ session, onBookingCreated }) {
               className="booking-confirmation"
               role="status"
               aria-live="polite"
+              data-id="ID5"
             >
               <div className="panel-header">
-                <p className="panel-kicker">ID5</p>
                 <h3>Booking confirmed</h3>
               </div>
               <div className="booking-confirmation__grid">
@@ -463,9 +464,8 @@ export default function ScooterList({ session, onBookingCreated }) {
       </section>
 
       <section className="fleet-layout">
-        <article className="panel panel-accent">
+        <article className="panel panel-accent" data-id="ID17">
           <div className="panel-header">
-            <p className="panel-kicker">ID17</p>
             <h2>Fleet availability overview</h2>
           </div>
           <div className="availability-overview" role="list" aria-live="polite">
@@ -491,9 +491,9 @@ export default function ScooterList({ session, onBookingCreated }) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="booking-dialog-title"
+            data-id="ID5"
           >
             <div className="panel-header">
-              <p className="panel-kicker">ID5</p>
               <h2 id="booking-dialog-title">Confirm your booking</h2>
             </div>
 
@@ -552,17 +552,19 @@ export default function ScooterList({ session, onBookingCreated }) {
                 </p>
               </div>
 
-              <div className="booking-summary-card">
-                <p className="summary-label">Payment simulator</p>
-                <p className="payment-note">
-                  Use <strong>4242 4242 4242 4242</strong> to simulate a
-                  successful payment.
-                </p>
-                <p className="payment-note">
-                  Use <strong>4000 0000 0000 0002</strong> to simulate a
-                  declined payment.
-                </p>
-              </div>
+              {SHOW_PAYMENT_SIMULATOR ? (
+                <div className="booking-summary-card">
+                  <p className="summary-label">Payment simulator (dev only)</p>
+                  <p className="payment-note">
+                    Use <strong>4242 4242 4242 4242</strong> to simulate a
+                    successful payment.
+                  </p>
+                  <p className="payment-note">
+                    Use <strong>4000 0000 0000 0002</strong> to simulate a
+                    declined payment.
+                  </p>
+                </div>
+              ) : null}
 
               <label htmlFor="payment-cardholder-name">
                 Cardholder name
