@@ -207,6 +207,43 @@ Each route requires:
 
 If a user is authenticated but not staff, the API returns `403 Forbidden`. This implements the project's non-functional security constraint that escalation and resolution controls are restricted to staff operators.
 
+## Phase 3: Visual + Non-Functional Enhancements
+
+### ID 21: Graphical weekly income plotting (`/income`)
+
+The income dashboard now includes a graphical weekly income view built with the `recharts` library.
+
+- Route: `/income`
+- Visualization: responsive bar chart (`BarChart`) for hire-plan income comparison
+- X-axis: hire plans (`1 Hour`, `4 Hours`, `1 Day`, `1 Week`)
+- Y-axis: income amount in GBP
+- Tooltip behavior: hover now reveals exact income and booking count for each plan
+- Data shaping: backend `income` and `counts` objects are merged into chart-friendly records in the frontend (e.g., `{ plan, income, bookings }`)
+
+This enhancement improves scanability of revenue patterns versus text-only cards while retaining exact value visibility through tooltip interactions.
+
+### ID 24: Mobile responsiveness hardening
+
+UI responsiveness has been explicitly hardened for small viewports (especially `< 768px`) using CSS media queries.
+
+- Grid-based layouts (including income cards and booking-history detail grids) now stack to single-column flows on mobile.
+- Top navigation is mobile-safe and remains usable by allowing horizontal scroll when link density exceeds available width.
+- Supporting spacing and control layout adjustments prevent overflow and maintain interaction clarity on narrow screens.
+- The Leaflet map container now respects mobile-friendly height constraints/aspect behavior so map rendering does not break surrounding layout.
+
+These updates ensure the same user workflows remain usable and readable across desktop, tablet, and mobile breakpoints.
+
+### ID 25: Accessibility (a11y) compliance improvements
+
+The frontend has been updated to better align with modern accessibility standards and keyboard-first navigation requirements.
+
+- Semantic structure is used consistently with landmarks/components such as `nav`, `main`, `section`, and `article` rather than relying on generic layout wrappers.
+- Ambiguous interactive controls now include explicit ARIA labeling where needed (for example, income week navigation actions).
+- Focus visibility has been reinforced through clear, high-contrast focus/focus-visible styles for keyboard users.
+- No focus outline suppression without fallback is used, preserving accessible keyboard traversal cues.
+
+Collectively, these a11y enhancements strengthen conformance with modern web standards and improve usability for assistive-technology and keyboard-only users.
+
 ## Local Run Command Set (Copy/Paste)
 Put this command set in your terminal exactly as shown.
 

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
@@ -37,6 +45,38 @@ function shiftWeek(dateStr, delta) {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + delta * 7);
   return d.toISOString().slice(0, 10);
+}
+
+function formatAxisCurrency(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '£0';
+  }
+
+  return `£${Math.round(value).toLocaleString('en-GB')}`;
+}
+
+function IncomeChartTooltip({ active, payload }) {
+  if (!active || !Array.isArray(payload) || payload.length === 0) {
+    return null;
+  }
+
+  const point = payload[0]?.payload;
+  if (!point) {
+    return null;
+  }
+
+  const bookings = Number.isFinite(point.bookings) ? point.bookings : 0;
+  const income = Number.isFinite(point.income) ? point.income : 0;
+
+  return (
+    <div className="income-chart__tooltip" role="tooltip">
+      <p className="income-chart__tooltip-label">{point.plan}</p>
+      <p className="income-chart__tooltip-value">{formatCurrency(income)}</p>
+      <p className="income-chart__tooltip-meta">
+        {bookings} booking{bookings === 1 ? '' : 's'}
+      </p>
+    </div>
+  );
 }
 
 export default function Income({ session }) {
@@ -86,6 +126,18 @@ export default function Income({ session }) {
     return () => controller.abort();
   }, [fetchIncome]);
 
+  const chartData = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    return PLAN_CONFIG.map((plan) => ({
+      plan: plan.label,
+      income: Number(data.income?.[plan.key] ?? 0),
+      bookings: Number(data.counts?.[plan.key] ?? 0),
+    }));
+  }, [data]);
+
   if (!token) {
     return (
       <section className="income-view">
@@ -112,6 +164,7 @@ export default function Income({ session }) {
           <button
             type="button"
             className="secondary"
+            aria-label={`View income for previous week before ${formatWeekLabel(weekStart)}`}
             onClick={() => setWeekStart((ws) => shiftWeek(ws, -1))}
           >
             ← Previous
@@ -122,6 +175,7 @@ export default function Income({ session }) {
           <button
             type="button"
             className="secondary"
+            aria-label={`View income for next week after ${formatWeekLabel(weekStart)}`}
             onClick={() => setWeekStart((ws) => shiftWeek(ws, 1))}
           >
             Next →
@@ -150,6 +204,50 @@ export default function Income({ session }) {
                 </div>
               ))}
             </div>
+
+            {chartData.length > 0 ? (
+              <figure className="income-chart" aria-label="Weekly income chart">
+                <figcaption className="income-chart__caption">
+                  <span className="panel-kicker">ID21</span>
+                  <span className="income-chart__title">
+                    Income by hire plan
+                  </span>
+                </figcaption>
+                <div className="income-chart__canvas">
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart
+                      data={chartData}
+                      margin={{ top: 16, right: 16, bottom: 8, left: 8 }}
+                    >
+                      <XAxis
+                        dataKey="plan"
+                        tick={{ fontSize: 12, fill: 'var(--muted)' }}
+                        tickLine={false}
+                        axisLine={{ stroke: 'rgba(15, 118, 110, 0.2)' }}
+                      />
+                      <YAxis
+                        tickFormatter={formatAxisCurrency}
+                        tick={{ fontSize: 12, fill: 'var(--muted)' }}
+                        tickLine={false}
+                        axisLine={{ stroke: 'rgba(15, 118, 110, 0.2)' }}
+                        width={64}
+                      />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(15, 118, 110, 0.08)' }}
+                        content={<IncomeChartTooltip />}
+                      />
+                      <Bar
+                        dataKey="income"
+                        name="Income"
+                        fill="var(--accent-strong, #0f766e)"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={72}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </figure>
+            ) : null}
 
             <div className="income-total">
               <p className="summary-label">Grand total</p>
