@@ -147,6 +147,11 @@ describe('HTTP integration: scooters + retire', () => {
       .delete('/api/scooters/ESC-003')
       .set(authHeader(tokens.admin));
     assert.equal(res.status, 409);
+    assert.match(
+      res.body.error || '',
+      /already retired/i,
+      'B3 spec requires the "already retired" message'
+    );
   });
 
   test('DELETE unknown scooter returns 404', async () => {
@@ -171,6 +176,11 @@ describe('HTTP integration: scooters + retire', () => {
       .delete('/api/scooters/ESC-002')
       .set(authHeader(tokens.admin));
     assert.equal(del.status, 409);
+    assert.match(
+      del.body.error || '',
+      /currently in use/i,
+      'B3 spec requires the "currently in use" message'
+    );
 
     const bookingId = bookRes.body.data.bookingId;
     const cancelRes = await request(app)

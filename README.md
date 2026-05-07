@@ -21,6 +21,9 @@ sqlite3 data/escooter.db < database/schema.sql
 sqlite3 data/escooter.db < database/seed.sql
 ```
 
+If you are upgrading an older local database, see **Database migrations**
+immediately below before starting the backend.
+
 ### Verify seeded data
 ```bash
 sqlite3 data/escooter.db "
@@ -374,6 +377,32 @@ full set.
 
 Existing databases created before the `retired` status was added must
 run the one-off migration (see **Database migrations** below).
+
+### Phase 4 update: scooter lifecycle
+
+The fleet now supports a lifecycle soft-delete state, `retired`, for
+operational decommissioning without data loss.
+
+- `retired` is a **status transition**, not a row deletion. Booking and
+  issue history remains linked to the same `scooter_id` for income and
+  audit continuity.
+- `DELETE /api/scooters/:scooterId` is admin-only and performs
+  `status -> retired`.
+  - `200`: retire succeeded; response returns the updated scooter row.
+  - `404`: scooter ID does not exist.
+  - `409`: scooter is `in_use` or already `retired`.
+- Rider discovery (`GET /api/scooters`) deliberately excludes retired
+  rows.
+- Admin fleet management (`GET /api/admin/scooters`) returns the full
+  set including retired rows so administrators can review and re-activate
+  using `PUT /api/scooters/:scooterId`.
+
+For existing developer databases created before `retired` was added to
+the `scooters.status` CHECK constraint, run:
+
+```bash
+sqlite3 data/escooter.db < database/migrations/001_add_retired_scooter_status.sql
+```
 
 `GET /api/admin/bookings` accepts optional query params:
 - `status`: `active` or `completed`

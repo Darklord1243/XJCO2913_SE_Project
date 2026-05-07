@@ -807,8 +807,7 @@ export default function AdminFleet({ session }) {
                         </div>
                       </div>
                       <div className="booking-actions booking-actions--fleet">
-                        {scooter.status !== 'retired' &&
-                        scooter.status !== 'in_use' ? (
+                        {scooter.status !== 'retired' ? (
                           <button
                             type="button"
                             className="secondary fleet-retire-btn"
@@ -827,10 +826,14 @@ export default function AdminFleet({ session }) {
                           >
                             Re-activate
                           </button>
-                        ) : null}
-                        <button type="button" onClick={() => startEdit(scooter)}>
-                          Edit scooter
-                        </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startEdit(scooter)}
+                          >
+                            Edit scooter
+                          </button>
+                        )}
                       </div>
                     </>
                   )}
