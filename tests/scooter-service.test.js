@@ -37,7 +37,7 @@ function buildValidPayload(overrides = {}) {
 test('scooter-service: SCOOTER_STATUSES is the documented closed set', () => {
   assert.deepEqual(
     [...SCOOTER_STATUSES],
-    ['available', 'in_use', 'maintenance', 'offline']
+    ['available', 'in_use', 'maintenance', 'offline', 'retired']
   );
 });
 
@@ -46,6 +46,15 @@ test('scooter-service: normalizeId trims and uppercases', () => {
   assert.equal(normalizeId('esc010'), 'ESC010');
   assert.equal(normalizeId(undefined), '');
   assert.equal(normalizeId(null), '');
+});
+
+test('validateScooterPayload: accepts retired status', () => {
+  const result = validateScooterPayload(
+    buildValidPayload({ status: 'retired' })
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value.status, 'retired');
 });
 
 test('validateScooterPayload: accepts a fully-valid payload', () => {

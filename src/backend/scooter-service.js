@@ -14,6 +14,7 @@ const SCOOTER_STATUSES = Object.freeze([
   'in_use',
   'maintenance',
   'offline',
+  'retired',
 ]);
 
 const SCOOTER_ID_PATTERN = /^[A-Z0-9-]{4,20}$/;

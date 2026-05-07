@@ -39,6 +39,19 @@ JOIN scooter_pricing p ON p.scooter_id = s.scooter_id;
 "
 ```
 
+### Database migrations (existing `escooter.db` only)
+
+If you already have a `data/escooter.db` file created from an older
+`schema.sql` that does not allow `scooter` status `retired`, apply the
+one-off migration (back up the file first):
+
+```bash
+sqlite3 data/escooter.db < database/migrations/001_add_retired_scooter_status.sql
+```
+
+New databases created from the current `database/schema.sql` do not
+need this step.
+
 ## Backend API
 Implemented endpoint:
 - `GET /api/scooters`
@@ -306,8 +319,11 @@ Newly admin-gated and added endpoints:
 | Method & Route                       | Required role | Purpose                                        |
 | ------------------------------------ | ------------- | ---------------------------------------------- |
 | `GET /api/bookings/income/weekly`    | `admin`       | Weekly income analytics (moved off rider UI). |
+| `GET /api/scooters`                  | *(public)*    | Rider-visible fleet (excludes `retired`).       |
+| `GET /api/admin/scooters`            | `admin`       | Full fleet including soft-retired rows.       |
 | `POST /api/scooters`                 | `admin`       | Create a scooter (also seeds its pricing row). |
 | `PUT /api/scooters/:scooterId`       | `admin`       | Update scooter status / location / pricing.    |
+| `DELETE /api/scooters/:scooterId`    | `admin`       | Soft-retire (`status -> retired`; no row delete). |
 | `GET /api/admin/bookings`            | `admin`       | List/filter all bookings across the platform.  |
 
 The `POST /api/scooters` payload is identical to the `PUT` shape, with
@@ -338,7 +354,7 @@ Constraints enforced server-side (and surfaced verbatim to the UI on
 - `scooterId` must match `^[A-Z0-9-]{4,20}$`. The validator
   uppercases and trims before checking, so user input like
   `" esc-010 "` is normalized.
-- `status` must be one of `available`, `in_use`, `maintenance`, `offline`.
+- `status` must be one of `available`, `in_use`, `maintenance`, `offline`, `retired`.
 - `latitude` must be in `[-90, 90]`, `longitude` in `[-180, 180]`.
 - `location.description` is required and trimmed.
 - All four pricing tiers must be finite numbers `>= 0`.
@@ -346,6 +362,18 @@ Constraints enforced server-side (and surfaced verbatim to the UI on
 A duplicate scooter ID returns `409 Conflict` and leaves both
 `scooters` and `scooter_pricing` rows untouched (the create path is
 wrapped in a single SQLite transaction with rollback on failure).
+
+**Soft retire (`DELETE /api/scooters/:scooterId`):** Sets
+`status = 'retired'`. Does not delete the row (bookings and issues stay
+linked for audit/income). Returns `409` if the scooter is `in_use`
+(active hire) or already `retired`. Re-activation is done with
+`PUT /api/scooters/:id` and `status: 'available'` (or another
+operational status). Rider discovery uses `GET /api/scooters`, which
+omits retired scooters; admins use `GET /api/admin/scooters` to see the
+full set.
+
+Existing databases created before the `retired` status was added must
+run the one-off migration (see **Database migrations** below).
 
 `GET /api/admin/bookings` accepts optional query params:
 - `status`: `active` or `completed`
@@ -373,13 +401,13 @@ Admin mode:
 - Components: `AdminBookings.jsx`, `AdminFleet.jsx`,
   `AdminIssues.jsx`, plus the existing `Income.jsx` reused under
   `/admin/income`.
-- The `Fleet Manage` page now exposes both **Edit scooter** (per-row,
-  `PUT /api/scooters/:scooterId`) and **Add scooter** (panel-level
-  toggle, `POST /api/scooters`). The create form mirrors the edit
-  fields, plus a `Scooter ID` input. Client-side it pre-checks the ID
-  format / duplicate-against-cache, then defers to the server's
-  authoritative validation; the new row appears in the same list as
-  soon as `useScooters()` refetches.
+- The `Fleet Manage` page loads data via **`useAdminScooters()`** calling
+  `GET /api/admin/scooters` (not the public rider list). It exposes
+  **Edit scooter** (`PUT /api/scooters/:scooterId`), **Add scooter**
+  (`POST /api/scooters`), **Retire** (`DELETE`, with a native
+  `confirm()`), and **Re-activate** (opens the edit form with status
+  pre-filled to `available`). Retired rows are visually de-emphasised in
+  the list.
 
 A role label is shown next to the brand in the navigation so the
 active mode is always visible at a glance.
@@ -429,15 +457,24 @@ behavior.
 
 ## Testing
 
-A `tests/` directory holds Node-native tests using the built-in
-`node:test` runner; no extra dependency is required.
+The suite uses Node's built-in `node:test` runner (`npm test` runs
+with `--test-concurrency=1` so integration tests do not overlap on the
+same process-global SQLite handle). **[supertest](https://github.com/ladjs/supertest)**
+(dev dependency) exercises real HTTP endpoints against an in-memory
+database (`DB_PATH=:memory:`); see `tests/integration/setup.js` and
+`tests/integration/*.test.js`.
 
 ```bash
 npm test
 ```
 
-Current coverage focuses on the security-critical primitives
-introduced in Phase 4:
+**Integration tests** (`tests/integration/`): auth/RBAC smoke,
+`scooters` create/update/delete retire vs public list,
+`bookings`/income/admin bookings including booking against a retired
+scooter, and issues staff gates.
+
+**Unit tests** focus on security-critical primitives introduced in
+Phase 4:
 
 - Role helpers (`isAdmin`, `hasStaffAccess`, `normalizeUserType`,
   `isSelfRegistrableUserType`) and the canonical role sets
@@ -459,7 +496,8 @@ introduced in Phase 4:
 When extending RBAC, prefer adding cases to
 `tests/auth-rbac.test.js` rather than re-deriving role logic in new
 modules. Likewise, scooter create/update validation cases belong in
-`tests/scooter-service.test.js`.
+`tests/scooter-service.test.js`. New HTTP/RBAC regressions belong in a
+matching file under `tests/integration/`.
 
 ## Local Run Command Set (Copy/Paste)
 Put this command set in your terminal exactly as shown.

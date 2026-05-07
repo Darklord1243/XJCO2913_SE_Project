@@ -509,6 +509,26 @@ button.secondary {
   background: rgba(180, 35, 24, 0.12);
 }
 
+.status-pill--retired {
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(120, 120, 120, 0.22);
+}
+
+.booking-history__item--retired {
+  opacity: 0.82;
+}
+
+.booking-actions--fleet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.booking-actions--fleet .fleet-retire-btn {
+  margin-right: auto;
+}
+
 .hire-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

@@ -5,7 +5,26 @@ const { normalizeId, validateScooterPayload } = require('../scooter-service');
 
 const router = express.Router();
 
-const selectScootersWithPricingQuery = `
+/** Rider-facing list: excludes soft-retired scooters (map / fleet discovery). */
+const selectRiderScootersWithPricingQuery = `
+  SELECT
+    s.scooter_id,
+    s.status,
+    s.latitude,
+    s.longitude,
+    s.location_description,
+    p.one_hour,
+    p.four_hours,
+    p.one_day,
+    p.one_week
+  FROM scooters s
+  INNER JOIN scooter_pricing p ON p.scooter_id = s.scooter_id
+  WHERE s.status IN ('available', 'in_use', 'maintenance', 'offline')
+  ORDER BY s.scooter_id ASC;
+`;
+
+/** Admin-only list: includes retired rows for audit / re-activation. */
+const selectAllScootersWithPricingQuery = `
   SELECT
     s.scooter_id,
     s.status,
@@ -80,8 +99,12 @@ function mapRowsToApiContract(rows) {
   }));
 }
 
+async function getRiderVisibleScootersWithPricing() {
+  return dbAll(selectRiderScootersWithPricingQuery, []);
+}
+
 async function getAllScootersWithPricing() {
-  return dbAll(selectScootersWithPricingQuery, []);
+  return dbAll(selectAllScootersWithPricingQuery, []);
 }
 
 async function getScooterById(scooterId) {
@@ -109,7 +132,7 @@ async function getScooterById(scooterId) {
 
 router.get('/scooters', async (_req, res) => {
   try {
-    const rows = await getAllScootersWithPricing();
+    const rows = await getRiderVisibleScootersWithPricing();
     const data = mapRowsToApiContract(rows);
 
     res.status(200).json({
@@ -119,6 +142,34 @@ router.get('/scooters', async (_req, res) => {
   } catch (error) {
     console.error('GET /api/scooters failed:', error);
     res.status(500).json({
+      success: false,
+      error: 'Failed to fetch scooters from database',
+    });
+  }
+});
+
+router.get('/admin/scooters', async (req, res) => {
+  const user = await authenticateRequest(req, res);
+
+  if (!user) {
+    return;
+  }
+
+  if (!requireAdmin(res, user)) {
+    return;
+  }
+
+  try {
+    const rows = await getAllScootersWithPricing();
+    const data = mapRowsToApiContract(rows);
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error('GET /api/admin/scooters failed:', error);
+    return res.status(500).json({
       success: false,
       error: 'Failed to fetch scooters from database',
     });
@@ -317,6 +368,70 @@ router.put('/scooters/:scooterId', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to update scooter.',
+    });
+  }
+});
+
+router.delete('/scooters/:scooterId', async (req, res) => {
+  const user = await authenticateRequest(req, res);
+
+  if (!user) {
+    return;
+  }
+
+  if (!requireAdmin(res, user)) {
+    return;
+  }
+
+  const scooterId = normalizeId(req.params.scooterId);
+
+  try {
+    const existing = await getScooterById(scooterId);
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Scooter not found.',
+      });
+    }
+
+    if (existing.status === 'in_use') {
+      return res.status(409).json({
+        success: false,
+        error:
+          'Scooter is currently in use; complete or cancel the booking first.',
+      });
+    }
+
+    if (existing.status === 'retired') {
+      return res.status(409).json({
+        success: false,
+        error: 'Scooter is already retired.',
+      });
+    }
+
+    await dbRun(
+      `
+        UPDATE scooters
+        SET
+          status = 'retired',
+          updated_at = CURRENT_TIMESTAMP
+        WHERE scooter_id = ?;
+      `,
+      [scooterId]
+    );
+
+    const updated = await getScooterById(scooterId);
+
+    return res.status(200).json({
+      success: true,
+      data: updated,
+    });
+  } catch (error) {
+    console.error('DELETE /api/scooters/:scooterId failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to retire scooter.',
     });
   }
 });

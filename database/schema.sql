@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS scooters (
   scooter_id TEXT PRIMARY KEY,
   status TEXT NOT NULL CHECK (
-    status IN ('available', 'in_use', 'maintenance', 'offline')
+    status IN ('available', 'in_use', 'maintenance', 'offline', 'retired')
   ),
   latitude REAL NOT NULL,
   longitude REAL NOT NULL,

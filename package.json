@@ -5,11 +5,12 @@
     "format": "prettier --write .",
     "db:init": "node src/backend/db/init.js",
     "dev": "vite src/frontend",
-    "test": "node --test tests"
+    "test": "node --test --test-concurrency=1 $(node tests/_list-test-files.cjs)"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",
     "prettier": "^3.8.1",
+    "supertest": "^7.2.2",
     "vite": "^8.0.3"
   },
   "dependencies": {
