@@ -1,17 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useScooters } from '../hooks/useScooters';
+import { useAdminScooters } from '../hooks/useAdminScooters';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
 const API_BASE = 'http://127.0.0.1:3000/api';
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS_BASE = [
   { value: 'available', label: 'Available' },
   { value: 'in_use', label: 'In Use' },
   { value: 'maintenance', label: 'Maintenance' },
   { value: 'offline', label: 'Offline' },
 ];
+
+const STATUS_OPTION_RETIRED = { value: 'retired', label: 'Retired' };
+
+function editStatusOptions(scooter) {
+  if (scooter?.status === 'retired') {
+    return [...STATUS_OPTIONS_BASE, STATUS_OPTION_RETIRED];
+  }
+
+  return STATUS_OPTIONS_BASE;
+}
 
 function toStatusLabel(status) {
   return String(status || '')
@@ -53,7 +63,9 @@ const SCOOTER_ID_PATTERN = /^[A-Z0-9-]{4,20}$/;
 
 export default function AdminFleet({ session }) {
   const token = getSessionToken(session);
-  const { scooters, isLoading, error, refetchScooters } = useScooters();
+  const { scooters, isLoading, error, refetchScooters } = useAdminScooters(
+    token
+  );
   const [editingId, setEditingId] = useState(null);
   const [editState, setEditState] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -61,6 +73,7 @@ export default function AdminFleet({ session }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createState, setCreateState] = useState({ ...EMPTY_CREATE_STATE });
   const [isCreating, setIsCreating] = useState(false);
+  const [retiringId, setRetiringId] = useState(null);
 
   const existingIds = useMemo(
     () =>
@@ -86,6 +99,63 @@ export default function AdminFleet({ session }) {
     setEditState(buildEditState(scooter));
     setActionMessage({ text: '', state: '' });
   }
+
+  /** Opens the edit form with status pre-filled to Available (reactivation path). */
+  function startReactivate(scooter) {
+    setIsCreateOpen(false);
+    setEditingId(scooter.scooterId);
+    setEditState({ ...buildEditState(scooter), status: 'available' });
+    setActionMessage({ text: '', state: '' });
+  }
+
+  const handleRetire = useCallback(
+    async (scooter) => {
+      if (!token || retiringId) {
+        return;
+      }
+
+      if (
+        !window.confirm(
+          `Retire scooter ${scooter.scooterId}? It will disappear from the rider map until you re-activate it.`
+        )
+      ) {
+        return;
+      }
+
+      setRetiringId(scooter.scooterId);
+      setActionMessage({ text: '', state: '' });
+
+      try {
+        await requestJson(`${API_BASE}/scooters/${scooter.scooterId}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setActionMessage({
+          text: `${scooter.scooterId} retired.`,
+          state: 'success',
+        });
+
+        if (editingId === scooter.scooterId) {
+          setEditingId(null);
+          setEditState(null);
+        }
+
+        await refetchScooters();
+      } catch (retireError) {
+        console.error('AdminFleet: retire failed', retireError);
+        setActionMessage({
+          text: retireError?.message || 'Failed to retire scooter.',
+          state: 'error',
+        });
+      } finally {
+        setRetiringId(null);
+      }
+    },
+    [editingId, refetchScooters, retiringId, token]
+  );
 
   function cancelEdit() {
     if (isSaving) {
@@ -346,7 +416,7 @@ export default function AdminFleet({ session }) {
                   }))
                 }
               >
-                {STATUS_OPTIONS.map((option) => (
+                {STATUS_OPTIONS_BASE.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -530,7 +600,7 @@ export default function AdminFleet({ session }) {
               return (
                 <article
                   key={scooter.scooterId}
-                  className="booking-history__item"
+                  className={`booking-history__item${scooter.status === 'retired' ? ' booking-history__item--retired' : ''}`}
                   role="listitem"
                 >
                   <div className="booking-history__header">
@@ -558,7 +628,7 @@ export default function AdminFleet({ session }) {
                             }))
                           }
                         >
-                          {STATUS_OPTIONS.map((option) => (
+                          {editStatusOptions(editingScooter).map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -736,11 +806,29 @@ export default function AdminFleet({ session }) {
                           </p>
                         </div>
                       </div>
-                      <div className="booking-actions">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(scooter)}
-                        >
+                      <div className="booking-actions booking-actions--fleet">
+                        {scooter.status !== 'retired' &&
+                        scooter.status !== 'in_use' ? (
+                          <button
+                            type="button"
+                            className="secondary fleet-retire-btn"
+                            disabled={Boolean(retiringId)}
+                            onClick={() => handleRetire(scooter)}
+                          >
+                            {retiringId === scooter.scooterId
+                              ? 'Retiring…'
+                              : 'Retire'}
+                          </button>
+                        ) : null}
+                        {scooter.status === 'retired' ? (
+                          <button
+                            type="button"
+                            onClick={() => startReactivate(scooter)}
+                          >
+                            Re-activate
+                          </button>
+                        ) : null}
+                        <button type="button" onClick={() => startEdit(scooter)}>
                           Edit scooter
                         </button>
                       </div>
