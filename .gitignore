@@ -64,3 +64,9 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# School-provided specification documents (kept locally, not tracked)
+/docs/requirements/marking scheme of CW2 for the joint school 2025.docx
+/docs/requirements/Project Brief.docx
+/docs/requirements/XJCO2913_CW1 Assessment Brief.docx
+/docs/requirements/XJCO2913_CW2 Assessment Brief .docx
