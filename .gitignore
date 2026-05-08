@@ -70,3 +70,6 @@ logs/
 /docs/requirements/Project Brief.docx
 /docs/requirements/XJCO2913_CW1 Assessment Brief.docx
 /docs/requirements/XJCO2913_CW2 Assessment Brief .docx
+
+# Database files
+*.db
