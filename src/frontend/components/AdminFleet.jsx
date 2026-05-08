@@ -63,9 +63,8 @@ const SCOOTER_ID_PATTERN = /^[A-Z0-9-]{4,20}$/;
 
 export default function AdminFleet({ session }) {
   const token = getSessionToken(session);
-  const { scooters, isLoading, error, refetchScooters } = useAdminScooters(
-    token
-  );
+  const { scooters, isLoading, error, refetchScooters } =
+    useAdminScooters(token);
   const [editingId, setEditingId] = useState(null);
   const [editState, setEditState] = useState(null);
   const [isSaving, setIsSaving] = useState(false);

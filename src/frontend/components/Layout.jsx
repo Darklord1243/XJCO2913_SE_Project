@@ -34,38 +34,44 @@ export default function Layout({ session, onLogout }) {
 
   return (
     <div className="layout-root">
-      <nav
-        className={`app-nav${isAdmin ? ' app-nav--admin' : ''}`}
-        aria-label="Main"
-      >
-        <div className="app-nav__inner">
-          <div className="app-nav__brand" aria-hidden="true">
-            <span className="app-nav__brand-name">E-Scooter Hire</span>
-            <span className="app-nav__brand-mode">{roleLabel}</span>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <header>
+        <nav
+          className={`app-nav${isAdmin ? ' app-nav--admin' : ''}`}
+          aria-label="Main"
+        >
+          <div className="app-nav__inner">
+            <div className="app-nav__brand" aria-hidden="true">
+              <span className="app-nav__brand-name">E-Scooter Hire</span>
+              <span className="app-nav__brand-mode">{roleLabel}</span>
+            </div>
+            <div className="app-nav__links">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `app-nav__link${isActive ? ' app-nav__link--active' : ''}`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="app-nav__logout secondary"
+              onClick={handleLogout}
+              aria-label="Log out of your account"
+            >
+              Logout
+            </button>
           </div>
-          <div className="app-nav__links">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `app-nav__link${isActive ? ' app-nav__link--active' : ''}`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="app-nav__logout secondary"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </div>
-      </nav>
-      <main className="layout-outlet">
+        </nav>
+      </header>
+      <main id="main-content" tabIndex={-1} className="layout-outlet">
         <Outlet />
       </main>
     </div>

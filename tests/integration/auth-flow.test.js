@@ -2,11 +2,7 @@ const assert = require('node:assert/strict');
 const { describe, test, before, after } = require('node:test');
 const request = require('supertest');
 
-const {
-  authHeader,
-  setupTestApp,
-  teardownTestApp,
-} = require('./setup');
+const { authHeader, setupTestApp, teardownTestApp } = require('./setup');
 
 describe('HTTP integration: auth + admin RBAC', () => {
   let app;

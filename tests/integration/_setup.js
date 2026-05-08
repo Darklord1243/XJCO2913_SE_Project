@@ -31,7 +31,13 @@ if (!process.env.DB_PATH || process.env.DB_PATH.trim() === '') {
   process.env.DB_PATH = ':memory:';
 }
 
-const SCHEMA_PATH = path.resolve(__dirname, '..', '..', 'database', 'schema.sql');
+const SCHEMA_PATH = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  'database',
+  'schema.sql'
+);
 const SEED_PATH = path.resolve(__dirname, '..', '..', 'database', 'seed.sql');
 
 function execSql(db, sql) {
@@ -177,7 +183,11 @@ async function seedUser(
       [insertResult.lastID]
     );
   } catch (error) {
-    console.error('seedUser: failed to insert user', { email: normalizedEmail }, error);
+    console.error(
+      'seedUser: failed to insert user',
+      { email: normalizedEmail },
+      error
+    );
     throw error;
   }
 }
