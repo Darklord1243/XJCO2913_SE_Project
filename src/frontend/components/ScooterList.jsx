@@ -420,6 +420,12 @@ export default function ScooterList({ session, onBookingCreated }) {
                     type="button"
                     onClick={() => openBookingModal(scooter.scooterId)}
                     disabled={!isSignedIn || scooter.status !== 'available'}
+                    aria-haspopup="dialog"
+                    aria-expanded={
+                      isBookingModalOpen &&
+                      bookingScooterId === scooter.scooterId
+                    }
+                    aria-label={`Book scooter ${scooter.scooterId}`}
                   >
                     Book now
                   </button>

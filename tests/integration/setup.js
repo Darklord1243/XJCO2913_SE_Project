@@ -50,24 +50,20 @@ async function setupTestApp() {
     'utf8'
   );
 
-  const db = require(path.join(PROJECT_ROOT, 'src', 'backend', 'db', 'connection.js'));
+  const db = require(
+    path.join(PROJECT_ROOT, 'src', 'backend', 'db', 'connection.js')
+  );
   activeDb = db;
 
   await dbExec(db, schemaSql);
   await dbExec(db, seedSql);
 
-  const { hashPassword, createSessionToken } = require(path.join(
-    PROJECT_ROOT,
-    'src',
-    'backend',
-    'auth-service.js'
-  ));
-  const { createUser } = require(path.join(
-    PROJECT_ROOT,
-    'src',
-    'backend',
-    'database.js'
-  ));
+  const { hashPassword, createSessionToken } = require(
+    path.join(PROJECT_ROOT, 'src', 'backend', 'auth-service.js')
+  );
+  const { createUser } = require(
+    path.join(PROJECT_ROOT, 'src', 'backend', 'database.js')
+  );
 
   async function addUser(fullName, email, userType, plainPassword) {
     const { passwordHash, passwordSalt } = hashPassword(plainPassword);
@@ -100,7 +96,9 @@ async function setupTestApp() {
     'StaffPass123!'
   );
 
-  const { createApp } = require(path.join(PROJECT_ROOT, 'src', 'backend', 'app.js'));
+  const { createApp } = require(
+    path.join(PROJECT_ROOT, 'src', 'backend', 'app.js')
+  );
   const app = createApp();
 
   const tokens = {

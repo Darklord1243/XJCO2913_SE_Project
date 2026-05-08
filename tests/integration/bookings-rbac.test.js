@@ -87,6 +87,35 @@ describe('HTTP integration: bookings + income RBAC', () => {
     assert.equal(cancelRes.status, 200);
   });
 
+  test('PATCH /api/bookings/:bookingId/cancel successfully cancels an active booking', async () => {
+    // 1) Use the minted standard-user token (tokens.rider from setupTestApp)
+    const riderAuth = authHeader(tokens.rider);
+
+    // 2) Create an active booking via the existing HTTP pattern
+    const bookRes = await request(app)
+      .post('/api/bookings')
+      .set(riderAuth)
+      .send({
+        scooterId: 'ESC-001',
+        durationCode: 'oneHour',
+        payment: SAMPLE_PAYMENT,
+      });
+
+    assert.equal(bookRes.status, 201);
+    assert.equal(bookRes.body.success, true);
+    assert.equal(bookRes.body.data.status, 'active');
+
+    // 3) Cancel the booking
+    const cancelRes = await request(app)
+      .patch(`/api/bookings/${bookRes.body.data.bookingId}/cancel`)
+      .set(riderAuth);
+
+    // 4) Assert 200 + completed status
+    assert.equal(cancelRes.status, 200);
+    assert.equal(cancelRes.body.success, true);
+    assert.equal(cancelRes.body.data.status, 'completed');
+  });
+
   test('POST /api/bookings 409 when scooter is retired', async () => {
     await request(app)
       .delete('/api/scooters/ESC-001')
