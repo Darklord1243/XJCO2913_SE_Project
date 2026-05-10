@@ -7,6 +7,7 @@ import AuthManager from './components/AuthManager';
 import Income from './components/Income';
 import Layout from './components/Layout.jsx';
 import MyBookings from './components/MyBookings';
+import ReportIssue from './components/ReportIssue';
 import ScooterList from './components/ScooterList';
 import ScooterMap from './components/ScooterMap';
 import { isAdminSession } from './roles';
@@ -89,6 +90,10 @@ export default function App() {
                         refreshKey={bookingRefreshKey}
                       />
                     }
+                  />
+                  <Route
+                    path="report-issue"
+                    element={<ReportIssue session={session} />}
                   />
                   <Route path="*" element={<Navigate to="/map" replace />} />
                 </>
