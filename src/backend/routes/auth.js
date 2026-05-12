@@ -8,6 +8,7 @@ const {
   verifyPassword,
 } = require('../auth-service');
 const { createUser, findUserByEmail } = require('../database');
+const { sendRegistrationEmail } = require('../email-service');
 const { isSelfRegistrableUserType } = require('../roles');
 
 const router = express.Router();
@@ -49,6 +50,8 @@ router.post('/register', async (req, res) => {
       passwordHash,
       passwordSalt,
     });
+
+    void sendRegistrationEmail(user);
 
     return res.status(201).json({
       success: true,

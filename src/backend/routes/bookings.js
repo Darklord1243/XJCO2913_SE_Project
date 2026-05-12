@@ -12,6 +12,10 @@ const {
 } = require('../booking-service');
 const { transactionMutex } = require('../database');
 const db = require('../db/connection');
+const {
+  sendBookingCompletedEmail,
+  sendBookingConfirmationEmail,
+} = require('../email-service');
 
 const DISCOUNTED_USER_TYPES = new Set(['student', 'senior']);
 const FREQUENT_USER_HOURS_THRESHOLD = 8;
@@ -271,16 +275,23 @@ router.post('/bookings', async (req, res) => {
       throw transactionError;
     }
 
+    const responseData = {
+      ...mapBookingRow(createdBooking),
+      paymentStatus: paymentResult.value.paymentStatus,
+      paymentReference: paymentResult.value.paymentReference,
+      scooterStatus: 'in_use',
+      discountApplied,
+      originalPrice,
+    };
+
+    void sendBookingConfirmationEmail({
+      user,
+      booking: responseData,
+    });
+
     return res.status(201).json({
       success: true,
-      data: {
-        ...mapBookingRow(createdBooking),
-        paymentStatus: paymentResult.value.paymentStatus,
-        paymentReference: paymentResult.value.paymentReference,
-        scooterStatus: 'in_use',
-        discountApplied,
-        originalPrice,
-      },
+      data: responseData,
     });
   } catch (error) {
     console.error('POST /api/bookings failed:', error);
@@ -379,9 +390,16 @@ router.patch('/bookings/:bookingId/cancel', async (req, res) => {
       [bookingId]
     );
 
+    const responseData = mapBookingRow(updated);
+
+    void sendBookingCompletedEmail({
+      user,
+      booking: responseData,
+    });
+
     return res.status(200).json({
       success: true,
-      data: mapBookingRow(updated),
+      data: responseData,
     });
   } catch (error) {
     console.error('PATCH /api/bookings/:bookingId/cancel failed:', error);
