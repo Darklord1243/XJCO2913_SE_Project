@@ -3,9 +3,10 @@ import { Inbox } from 'lucide-react';
 import { useBookings } from '../hooks/useBookings';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
+import { apiUrl } from '../utils/apiBase';
 import { formatCurrency } from '../utils/currency';
 
-const API_BASE = 'http://127.0.0.1:3000/api';
+const API_BASE = apiUrl('/api');
 
 const DURATION_LABELS = {
   oneHour: '1 Hour',

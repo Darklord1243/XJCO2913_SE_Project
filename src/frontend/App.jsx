@@ -8,6 +8,7 @@ import Income from './components/Income';
 import Layout from './components/Layout.jsx';
 import MyBookings from './components/MyBookings';
 import ReportIssue from './components/ReportIssue';
+import Profile from './components/Profile';
 import SavedCards from './components/SavedCards';
 import ScooterList from './components/ScooterList';
 import ScooterMap from './components/ScooterMap';
@@ -41,85 +42,94 @@ export default function App() {
 
   return (
     <BrowserRouter>
-        {session ? (
-          <div className="shell app-layout">
-            <Routes>
-              <Route path="/" element={<Navigate to={homePath} replace />} />
-              <Route
-                element={<Layout session={session} onLogout={handleLogout} />}
-              >
-                {isAdmin ? (
-                  <>
-                    <Route
-                      path="admin/bookings"
-                      element={<AdminBookings session={session} />}
-                    />
-                    <Route
-                      path="admin/fleet"
-                      element={<AdminFleet session={session} />}
-                    />
-                    <Route
-                      path="admin/issues"
-                      element={<AdminIssues session={session} />}
-                    />
-                    <Route
-                      path="admin/income"
-                      element={<Income session={session} />}
-                    />
-                    <Route
-                      path="*"
-                      element={<Navigate to="/admin/bookings" replace />}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Route path="map" element={<ScooterMap />} />
-                    <Route
-                      path="fleet"
-                      element={
-                        <ScooterList
-                          session={session}
-                          onBookingCreated={handleBookingCreated}
-                        />
-                      }
-                    />
-                    <Route
-                      path="bookings"
-                      element={
-                        <MyBookings
-                          session={session}
-                          refreshKey={bookingRefreshKey}
-                        />
-                      }
-                    />
-                    <Route
-                      path="cards"
-                      element={<SavedCards session={session} />}
-                    />
-                    <Route
-                      path="report-issue"
-                      element={<ReportIssue session={session} />}
-                    />
-                    <Route path="*" element={<Navigate to="/map" replace />} />
-                  </>
-                )}
-              </Route>
-            </Routes>
-          </div>
-        ) : (
+      {session ? (
+        <div className="shell app-layout">
           <Routes>
+            <Route path="/" element={<Navigate to={homePath} replace />} />
             <Route
-              path="/"
-              element={
-                <AuthManager
-                  session={session}
-                  onSessionChange={handleSessionChange}
-                />
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
+              element={<Layout session={session} onLogout={handleLogout} />}
+            >
+              {isAdmin ? (
+                <>
+                  <Route
+                    path="admin/bookings"
+                    element={<AdminBookings session={session} />}
+                  />
+                  <Route
+                    path="admin/fleet"
+                    element={<AdminFleet session={session} />}
+                  />
+                  <Route
+                    path="admin/issues"
+                    element={<AdminIssues session={session} />}
+                  />
+                  <Route
+                    path="admin/income"
+                    element={<Income session={session} />}
+                  />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/admin/bookings" replace />}
+                  />
+                </>
+              ) : (
+                <>
+                  <Route path="map" element={<ScooterMap />} />
+                  <Route
+                    path="fleet"
+                    element={
+                      <ScooterList
+                        session={session}
+                        onBookingCreated={handleBookingCreated}
+                      />
+                    }
+                  />
+                  <Route
+                    path="bookings"
+                    element={
+                      <MyBookings
+                        session={session}
+                        refreshKey={bookingRefreshKey}
+                      />
+                    }
+                  />
+                  <Route
+                    path="cards"
+                    element={<SavedCards session={session} />}
+                  />
+                  <Route
+                    path="profile"
+                    element={
+                      <Profile
+                        session={session}
+                        onSessionChange={handleSessionChange}
+                      />
+                    }
+                  />
+                  <Route
+                    path="report-issue"
+                    element={<ReportIssue session={session} />}
+                  />
+                  <Route path="*" element={<Navigate to="/map" replace />} />
+                </>
+              )}
+            </Route>
           </Routes>
-        )}
+        </div>
+      ) : (
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <AuthManager
+                session={session}
+                onSessionChange={handleSessionChange}
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )}
     </BrowserRouter>
   );
 }

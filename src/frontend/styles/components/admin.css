@@ -14,11 +14,7 @@
 }
 
 .admin-card--accent {
-  background: linear-gradient(
-    165deg,
-    var(--surface) 0%,
-    var(--surface-2) 100%
-  );
+  background: linear-gradient(165deg, var(--surface) 0%, var(--surface-2) 100%);
 }
 
 .admin-header {

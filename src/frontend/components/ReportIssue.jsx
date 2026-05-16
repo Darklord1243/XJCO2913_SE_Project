@@ -4,7 +4,9 @@ import { useScooters } from '../hooks/useScooters';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 
-const API_BASE = 'http://127.0.0.1:3000/api';
+import { apiUrl } from '../utils/apiBase';
+
+const API_BASE = apiUrl('/api');
 
 export default function ReportIssue({ session }) {
   const { scooters, isLoading, error, refetchScooters } = useScooters();
@@ -148,11 +150,7 @@ export default function ReportIssue({ session }) {
         </div>
 
         {createdIssue ? (
-          <div
-            className="page-success"
-            role="status"
-            aria-live="polite"
-          >
+          <div className="page-success" role="status" aria-live="polite">
             <h3 className="page-success__title">Issue reported</h3>
             <div className="page-success__grid">
               <div className="list-card__stat">
@@ -176,7 +174,11 @@ export default function ReportIssue({ session }) {
               Your report has been submitted. Staff will review it shortly.
             </p>
             <div className="page-success__actions">
-              <button type="button" className="btn btn--secondary" onClick={resetForm}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={resetForm}
+              >
                 Report another issue
               </button>
             </div>

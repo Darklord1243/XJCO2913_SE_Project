@@ -12,8 +12,9 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
 3. Enter:
    1. Full name
    2. Email address
-   3. Password
-   4. Confirm password
+   3. **Account type** — Standard, Student, or Senior (student/senior receive 20% off hire plans)
+   4. Password
+   5. Confirm password
 4. If needed, use the password visibility toggle to show/hide password text.
 5. Ensure both password fields match and satisfy the minimum length requirement.
 6. Click **Create account**.
@@ -35,7 +36,10 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
    1. **Map**
    2. **Fleet**
    3. **My Bookings**
-2. Verify the role label in the brand area is shown as **Customer**.
+   4. **My Cards**
+   5. **Profile**
+   6. **Report Issue**
+2. Verify the role label in the brand area reflects your account type (e.g. **Customer**, **Student**, **Senior**).
 3. Use the navigation tabs to move between customer features.
 
 [Insert Screenshot of Customer Navigation Bar here]
@@ -70,30 +74,52 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
 [Insert Screenshot of Hire Plans Panel here]
 [Insert Screenshot of Fleet Availability Overview here]
 
-### 6) Book a Scooter (Simulated Payment)
+### 6) Manage Saved Cards (My Cards)
+1. Click **My Cards** in the navigation bar.
+2. To add a card, complete all card fields and click **Save card**.
+3. Only **simulator test cards** work for bookings in this coursework build (`4242 4242 4242 4242` or `4000 0000 0000 0002`). Other numbers can be saved but show a warning and cannot be charged.
+4. Saved cards display **brand** and **last four digits** only — full numbers are never stored.
+5. Use **Remove** to delete a saved card from your account.
+
+[Insert Screenshot of My Cards Page here]
+
+### 7) Update Account Type (Profile)
+1. Click **Profile** in the navigation bar.
+2. Review your current account type.
+3. Select **Standard**, **Student**, or **Senior** as appropriate.
+4. Click **Save account type** (issues a new session token with the updated type).
+5. Student and senior types qualify for a **20% discount** on hire plans, applied automatically at checkout.
+
+[Insert Screenshot of Profile Account Type here]
+
+### 8) Book a Scooter (Simulated Payment)
 1. In Fleet view, click **Book now** on an available scooter.
 2. In the booking modal:
    1. Confirm scooter details
    2. Select a hire duration
-   3. Enter payment details:
+   3. Review the **price preview** (list price, any discount, and total to pay)
+   4. Choose **saved card** (re-enter **CVV** required) or **enter new card** details:
       1. Cardholder name
       2. Card number (16 digits)
       3. Expiry date (MM/YY)
       4. CVV (3-4 digits)
-3. Click **Confirm booking**.
+3. Click **Confirm booking** (disabled until payment fields are valid).
 4. On success, read the confirmation details:
    1. Booking ID
    2. Scooter ID
    3. Hire plan
-   4. Total price
-   5. Booking status
-   6. Payment status/reference
+   4. List price and total paid (if a discount applied)
+   5. Discount reason (student, senior, or frequent rider)
+   6. Booking status
+   7. Payment status/reference
 5. Return to Fleet/My Bookings to verify the booking appears as active.
+
+**Discounts (ID22):** 20% off for student/senior account types and for frequent riders (8+ hire hours in the last 7 days). Frequent-rider status is calculated on the server when you book.
 
 [Insert Screenshot of Booking Modal here]
 [Insert Screenshot of Booking Confirmation Card here]
 
-### 7) View Booking History
+### 9) View Booking History
 1. Click **My Bookings** in the navigation bar.
 2. Review all bookings shown in reverse chronological order.
 3. For each booking card, check:
@@ -106,7 +132,7 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
 
 [Insert Screenshot of My Bookings Page here]
 
-### 8) Cancel an Active Booking
+### 10) Cancel an Active Booking
 1. In **My Bookings**, locate a booking with status **Active**.
 2. Click **Cancel Booking**.
 3. Wait for the success message.
@@ -117,7 +143,7 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
 [Insert Screenshot of Cancel Booking Button here]
 [Insert Screenshot of Post-Cancel Success Message here]
 
-### 9) Extend an Active Booking
+### 11) Extend an Active Booking
 1. In **My Bookings**, locate an active booking with extension options.
 2. Click **Extend**.
 3. Choose a longer duration from the dropdown.
@@ -128,7 +154,7 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
 [Insert Screenshot of Extend Booking Dropdown here]
 [Insert Screenshot of Extend Booking Success Message here]
 
-### 10) Log Out
+### 12) Log Out
 1. Click **Logout** in the top navigation.
 2. Confirm the app returns to the authentication screen.
 3. Verify no protected customer page is accessible without signing in again.

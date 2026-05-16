@@ -117,6 +117,19 @@ async function findUserById(id) {
   );
 }
 
+async function updateUserAccountType(userId, userType) {
+  await dbRun(
+    `
+      UPDATE users
+      SET user_type = ?
+      WHERE id = ?;
+    `,
+    [userType, userId]
+  );
+
+  return findUserById(userId);
+}
+
 async function createUser({
   fullName,
   email,
@@ -279,4 +292,5 @@ module.exports = {
   resolveDatabasePath,
   transactionMutex,
   updateIssue,
+  updateUserAccountType,
 };

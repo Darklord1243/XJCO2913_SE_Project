@@ -9,6 +9,7 @@ const CUSTOMER_NAV_ITEMS = [
   { to: '/fleet', label: 'Fleet' },
   { to: '/bookings', label: 'My Bookings' },
   { to: '/cards', label: 'My Cards' },
+  { to: '/profile', label: 'Profile' },
   { to: '/report-issue', label: 'Report Issue' },
 ];
 
@@ -64,17 +65,19 @@ export default function Layout({ session, onLogout }) {
         Skip to main content
       </a>
       <header>
-        <nav
-          className="nav"
-          aria-label="Main"
-        >
+        <nav className="nav" aria-label="Main">
           <div className="nav__inner">
             <div className="nav__brand">
               <span className="nav__brand-mark" aria-hidden="true">
                 <Zap size={18} />
               </span>
               <span className="nav__brand-name">E-Scooter Hire</span>
-              <span className="nav__role" aria-label={`Logged in as ${roleLabel}`}>{roleLabel}</span>
+              <span
+                className="nav__role"
+                aria-label={`Logged in as ${roleLabel}`}
+              >
+                {roleLabel}
+              </span>
             </div>
             <div className="nav__center">
               <div className="nav__links">
@@ -97,11 +100,17 @@ export default function Layout({ session, onLogout }) {
                 type="button"
                 className="nav__menu-toggle nav__icon-btn"
                 onClick={toggleMenu}
-                aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-label={
+                  menuOpen ? 'Close navigation menu' : 'Open navigation menu'
+                }
                 aria-expanded={menuOpen}
                 aria-controls="nav-drawer"
               >
-                {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+                {menuOpen ? (
+                  <X size={18} aria-hidden="true" />
+                ) : (
+                  <Menu size={18} aria-hidden="true" />
+                )}
               </button>
               <button
                 type="button"

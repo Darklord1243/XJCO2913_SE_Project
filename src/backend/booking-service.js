@@ -2,20 +2,126 @@ const crypto = require('node:crypto');
 
 const SUPPORTED_SUCCESS_CARD = '4242424242424242';
 const SUPPORTED_DECLINE_CARD = '4000000000000002';
+const SIMULATOR_CARD_NUMBERS = [SUPPORTED_SUCCESS_CARD, SUPPORTED_DECLINE_CARD];
+
+const DISCOUNTED_USER_TYPES = new Set(['student', 'senior']);
+const FREQUENT_USER_HOURS_THRESHOLD = 8;
+const DISCOUNT_MULTIPLIER = 0.8;
 
 // ---------------------------------------------------------------------------
 // ID2/ID3: Card storage helpers (coursework simulation only)
 // ---------------------------------------------------------------------------
-// These produce a deterministic hash of the normalised PAN so the payment
-// simulator (which only accepts two fixed test card numbers) can still
-// resolve card inputs from a saved card reference. In a real system the
-// hash would be salted, or — better — the PAN would never touch the
-// application server at all; a payment processor would return an opaque
-// token and we would store only that token + last4.
+// HMAC-SHA256 of the normalised PAN (secret from env). Legacy plain SHA-256
+// hashes are still recognised when resolving saved cards. In production the
+// PAN would never touch our servers — a PSP token + last4 would be stored.
+
+function getCardHashSecret() {
+  const secret = process.env.CARD_HASH_SECRET;
+
+  if (typeof secret === 'string' && secret.trim() !== '') {
+    return secret.trim();
+  }
+
+  return 'escooter-dev-card-hash-v1';
+}
+
+function hashCardPanLegacy(cardNumber) {
+  const normalised = String(cardNumber).replace(/\s+/g, '');
+  return crypto.createHash('sha256').update(normalised).digest('hex');
+}
 
 function hashCardPan(cardNumber) {
   const normalised = String(cardNumber).replace(/\s+/g, '');
-  return crypto.createHash('sha256').update(normalised).digest('hex');
+  return crypto
+    .createHmac('sha256', getCardHashSecret())
+    .update(normalised)
+    .digest('hex');
+}
+
+function isSimulatorSupportedPan(cardNumber) {
+  const normalised = String(cardNumber).replace(/\s+/g, '');
+  return SIMULATOR_CARD_NUMBERS.includes(normalised);
+}
+
+function resolveSimulatorPanFromHash(cardHash) {
+  if (typeof cardHash !== 'string' || cardHash.trim() === '') {
+    return null;
+  }
+
+  for (const pan of SIMULATOR_CARD_NUMBERS) {
+    if (hashCardPan(pan) === cardHash || hashCardPanLegacy(pan) === cardHash) {
+      return pan;
+    }
+  }
+
+  return null;
+}
+
+function validateCvv(cvv) {
+  const normalized = normalizeText(cvv);
+
+  if (!/^\d{3,4}$/.test(normalized)) {
+    return {
+      ok: false,
+      message: 'CVV must contain 3 or 4 digits.',
+    };
+  }
+
+  return { ok: true, value: normalized };
+}
+
+function roundToTwoDecimals(value) {
+  return Math.round(value * 100) / 100;
+}
+
+function computeBookingPricing({ userType, weeklyHours, baseTotalPrice }) {
+  const normalizedType = typeof userType === 'string' ? userType : 'standard';
+  const safeWeeklyHours =
+    typeof weeklyHours === 'number' && Number.isFinite(weeklyHours)
+      ? Math.max(0, weeklyHours)
+      : 0;
+
+  if (
+    typeof baseTotalPrice !== 'number' ||
+    !Number.isFinite(baseTotalPrice) ||
+    baseTotalPrice < 0
+  ) {
+    throw new TypeError(
+      'computeBookingPricing requires a non-negative baseTotalPrice.'
+    );
+  }
+
+  const isDiscountedUserType = DISCOUNTED_USER_TYPES.has(normalizedType);
+  const isFrequentUser = safeWeeklyHours >= FREQUENT_USER_HOURS_THRESHOLD;
+  const discountApplied = isDiscountedUserType || isFrequentUser;
+
+  let discountReason = null;
+
+  if (discountApplied) {
+    if (isDiscountedUserType) {
+      discountReason = normalizedType;
+    } else {
+      discountReason = 'frequent';
+    }
+  }
+
+  const originalPrice = roundToTwoDecimals(baseTotalPrice);
+  const totalPrice = discountApplied
+    ? roundToTwoDecimals(baseTotalPrice * DISCOUNT_MULTIPLIER)
+    : originalPrice;
+
+  return {
+    originalPrice,
+    totalPrice,
+    discountApplied,
+    discountReason,
+    weeklyHours: safeWeeklyHours,
+    frequentUserHoursThreshold: FREQUENT_USER_HOURS_THRESHOLD,
+    hoursUntilFrequentDiscount: Math.max(
+      0,
+      FREQUENT_USER_HOURS_THRESHOLD - safeWeeklyHours
+    ),
+  };
 }
 
 function extractLast4(cardNumber) {
@@ -306,16 +412,24 @@ async function calculateWeeklyUserHours({ dbAll, userId } = {}) {
 }
 
 module.exports = {
+  SUPPORTED_DECLINE_CARD,
+  SUPPORTED_SUCCESS_CARD,
   calculateWeeklyUserHours,
+  computeBookingPricing,
   createBookingInTransaction,
   detectCardBrand,
   durationCodes,
   durationHoursMap,
   extractLast4,
+  FREQUENT_USER_HOURS_THRESHOLD,
   hashCardPan,
+  hashCardPanLegacy,
+  isSimulatorSupportedPan,
   normalizeId,
   normalizeText,
   pricingColumnMap,
+  resolveSimulatorPanFromHash,
   simulatePayment,
+  validateCvv,
   validatePaymentPayload,
 };

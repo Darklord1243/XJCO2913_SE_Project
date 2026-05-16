@@ -1,15 +1,27 @@
 import { useMemo, useState } from 'react';
-import { Bike, CheckCircle2, Clock, Eye, EyeOff, MapPin, XCircle, Zap } from 'lucide-react';
+import {
+  Bike,
+  CheckCircle2,
+  Clock,
+  Eye,
+  EyeOff,
+  MapPin,
+  XCircle,
+  Zap,
+} from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { requestJson } from '../utils/api';
+import { apiUrl } from '../utils/apiBase';
+import AccountTypePicker from './AccountTypePicker';
 
-const REGISTER_ENDPOINT = 'http://127.0.0.1:3000/api/auth/register';
-const LOGIN_ENDPOINT = 'http://127.0.0.1:3000/api/auth/login';
+const REGISTER_ENDPOINT = apiUrl('/api/auth/register');
+const LOGIN_ENDPOINT = apiUrl('/api/auth/login');
 const MIN_PASSWORD_LENGTH = 8;
 
 const initialRegisterForm = {
   fullName: '',
   email: '',
+  userType: 'standard',
   password: '',
   confirmPassword: '',
 };
@@ -55,7 +67,11 @@ function PasswordField({
         aria-label={isVisible ? 'Hide password' : 'Show password'}
         title={isVisible ? 'Hide password' : 'Show password'}
       >
-        {isVisible ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+        {isVisible ? (
+          <EyeOff size={16} aria-hidden="true" />
+        ) : (
+          <Eye size={16} aria-hidden="true" />
+        )}
       </button>
     </div>
   );
@@ -83,7 +99,11 @@ function FormAlert({ message }) {
       role="alert"
       aria-live="polite"
     >
-      {isError ? <XCircle size={16} aria-hidden="true" className="alert__icon" /> : <CheckCircle2 size={16} aria-hidden="true" className="alert__icon" />}
+      {isError ? (
+        <XCircle size={16} aria-hidden="true" className="alert__icon" />
+      ) : (
+        <CheckCircle2 size={16} aria-hidden="true" className="alert__icon" />
+      )}
       {message.text}
     </div>
   );
@@ -93,10 +113,14 @@ export default function AuthManager({ session, onSessionChange }) {
   const [activeTab, setActiveTab] = useState('signin');
   const [registerForm, setRegisterForm] = useState(initialRegisterForm);
   const [loginForm, setLoginForm] = useState(initialLoginForm);
-  const [registerMessage, setRegisterMessage] = useState({ text: '', state: '' });
+  const [registerMessage, setRegisterMessage] = useState({
+    text: '',
+    state: '',
+  });
   const [loginMessage, setLoginMessage] = useState({ text: '', state: '' });
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false);
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] =
+    useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [isSubmittingRegister, setIsSubmittingRegister] = useState(false);
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
@@ -115,8 +139,9 @@ export default function AuthManager({ session, onSessionChange }) {
     };
   }, [session]);
 
-  const passwordMismatch = registerForm.confirmPassword.length > 0
-    && registerForm.password !== registerForm.confirmPassword;
+  const passwordMismatch =
+    registerForm.confirmPassword.length > 0 &&
+    registerForm.password !== registerForm.confirmPassword;
 
   async function handleRegisterSubmit(event) {
     event.preventDefault();
@@ -145,6 +170,7 @@ export default function AuthManager({ session, onSessionChange }) {
         body: JSON.stringify({
           fullName: registerForm.fullName,
           email: registerForm.email,
+          userType: registerForm.userType,
           password: registerForm.password,
           confirmPassword: registerForm.confirmPassword,
         }),
@@ -236,25 +262,32 @@ export default function AuthManager({ session, onSessionChange }) {
         <div className="auth-brand__hero">
           <h1 className="auth-brand__headline">Ride Leeds, on demand.</h1>
           <p className="auth-brand__sub">
-            Unlock an e-scooter from any of our five city locations. Pay by the hour, day, or week — with discounts for students and seniors.
+            Unlock an e-scooter from any of our five city locations. Pay by the
+            hour, day, or week — with discounts for students and seniors.
           </p>
           <ul className="auth-brand__points" role="list">
             <li className="auth-brand__point">
-              <span className="auth-brand__point-icon"><Zap size={16} /></span>
+              <span className="auth-brand__point-icon">
+                <Zap size={16} />
+              </span>
               <span className="auth-brand__point-text">
                 <strong>Instant access</strong>
                 Unlock in seconds with a registered account.
               </span>
             </li>
             <li className="auth-brand__point">
-              <span className="auth-brand__point-icon"><MapPin size={16} /></span>
+              <span className="auth-brand__point-icon">
+                <MapPin size={16} />
+              </span>
               <span className="auth-brand__point-text">
                 <strong>City-wide network</strong>
                 Five staffed locations across central Leeds.
               </span>
             </li>
             <li className="auth-brand__point">
-              <span className="auth-brand__point-icon"><Clock size={16} /></span>
+              <span className="auth-brand__point-icon">
+                <Clock size={16} />
+              </span>
               <span className="auth-brand__point-text">
                 <strong>Flexible plans</strong>
                 Hourly, daily, and weekly hire to fit any trip.
@@ -262,7 +295,9 @@ export default function AuthManager({ session, onSessionChange }) {
             </li>
           </ul>
         </div>
-        <p className="auth-brand__footer">&copy; E-Scooter Rental Platform &middot; Leeds</p>
+        <p className="auth-brand__footer">
+          &copy; E-Scooter Rental Platform &middot; Leeds
+        </p>
       </aside>
       <main className="auth-form-panel">
         <header className="auth-brand-compact">
@@ -305,7 +340,9 @@ export default function AuthManager({ session, onSessionChange }) {
           {isSignIn ? (
             <form className="auth-form" onSubmit={handleLoginSubmit} noValidate>
               <div className="field">
-                <label className="field__label" htmlFor="login-email">Email</label>
+                <label className="field__label" htmlFor="login-email">
+                  Email
+                </label>
                 <input
                   id="login-email"
                   name="email"
@@ -315,13 +352,18 @@ export default function AuthManager({ session, onSessionChange }) {
                   placeholder="you@example.com"
                   value={loginForm.email}
                   onChange={(event) =>
-                    setLoginForm((current) => ({ ...current, email: event.target.value }))
+                    setLoginForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
                   }
                   required
                 />
               </div>
               <div className="field">
-                <label className="field__label" htmlFor="login-password">Password</label>
+                <label className="field__label" htmlFor="login-password">
+                  Password
+                </label>
                 <PasswordField
                   id="login-password"
                   name="password"
@@ -329,10 +371,15 @@ export default function AuthManager({ session, onSessionChange }) {
                   placeholder="Enter your password"
                   value={loginForm.password}
                   onChange={(event) =>
-                    setLoginForm((current) => ({ ...current, password: event.target.value }))
+                    setLoginForm((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
                   }
                   isVisible={showLoginPassword}
-                  onToggleVisibility={() => setShowLoginPassword((current) => !current)}
+                  onToggleVisibility={() =>
+                    setShowLoginPassword((current) => !current)
+                  }
                 />
               </div>
               <FormAlert message={loginMessage} />
@@ -345,9 +392,15 @@ export default function AuthManager({ session, onSessionChange }) {
               </button>
             </form>
           ) : (
-            <form className="auth-form" onSubmit={handleRegisterSubmit} noValidate>
+            <form
+              className="auth-form"
+              onSubmit={handleRegisterSubmit}
+              noValidate
+            >
               <div className="field">
-                <label className="field__label" htmlFor="register-full-name">Full name</label>
+                <label className="field__label" htmlFor="register-full-name">
+                  Full name
+                </label>
                 <input
                   id="register-full-name"
                   name="fullName"
@@ -357,13 +410,18 @@ export default function AuthManager({ session, onSessionChange }) {
                   placeholder="Ada Lovelace"
                   value={registerForm.fullName}
                   onChange={(event) =>
-                    setRegisterForm((current) => ({ ...current, fullName: event.target.value }))
+                    setRegisterForm((current) => ({
+                      ...current,
+                      fullName: event.target.value,
+                    }))
                   }
                   required
                 />
               </div>
               <div className="field">
-                <label className="field__label" htmlFor="register-email">Email</label>
+                <label className="field__label" htmlFor="register-email">
+                  Email
+                </label>
                 <input
                   id="register-email"
                   name="email"
@@ -373,13 +431,30 @@ export default function AuthManager({ session, onSessionChange }) {
                   placeholder="you@example.com"
                   value={registerForm.email}
                   onChange={(event) =>
-                    setRegisterForm((current) => ({ ...current, email: event.target.value }))
+                    setRegisterForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
                   }
                   required
                 />
               </div>
+              <AccountTypePicker
+                name="registerUserType"
+                legend="Account type"
+                hint="Students and seniors receive 20% off hire plans. You can change this later in Profile."
+                value={registerForm.userType}
+                onChange={(nextType) =>
+                  setRegisterForm((current) => ({
+                    ...current,
+                    userType: nextType,
+                  }))
+                }
+              />
               <div className="field">
-                <label className="field__label" htmlFor="register-password">Password</label>
+                <label className="field__label" htmlFor="register-password">
+                  Password
+                </label>
                 <PasswordField
                   id="register-password"
                   name="password"
@@ -388,15 +463,27 @@ export default function AuthManager({ session, onSessionChange }) {
                   placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                   value={registerForm.password}
                   onChange={(event) =>
-                    setRegisterForm((current) => ({ ...current, password: event.target.value }))
+                    setRegisterForm((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
                   }
                   isVisible={showRegisterPassword}
-                  onToggleVisibility={() => setShowRegisterPassword((current) => !current)}
+                  onToggleVisibility={() =>
+                    setShowRegisterPassword((current) => !current)
+                  }
                 />
-                <span className="field__hint">Minimum {MIN_PASSWORD_LENGTH} characters.</span>
+                <span className="field__hint">
+                  Minimum {MIN_PASSWORD_LENGTH} characters.
+                </span>
               </div>
               <div className="field">
-                <label className="field__label" htmlFor="register-confirm-password">Confirm password</label>
+                <label
+                  className="field__label"
+                  htmlFor="register-confirm-password"
+                >
+                  Confirm password
+                </label>
                 <PasswordField
                   id="register-confirm-password"
                   name="confirmPassword"
@@ -405,7 +492,10 @@ export default function AuthManager({ session, onSessionChange }) {
                   placeholder="Re-enter your password"
                   value={registerForm.confirmPassword}
                   onChange={(event) =>
-                    setRegisterForm((current) => ({ ...current, confirmPassword: event.target.value }))
+                    setRegisterForm((current) => ({
+                      ...current,
+                      confirmPassword: event.target.value,
+                    }))
                   }
                   isVisible={showRegisterConfirmPassword}
                   onToggleVisibility={() =>
@@ -414,7 +504,11 @@ export default function AuthManager({ session, onSessionChange }) {
                   ariaInvalid={passwordMismatch}
                 />
                 {passwordMismatch ? (
-                  <span className="field__error" role="alert" aria-live="polite">
+                  <span
+                    className="field__error"
+                    role="alert"
+                    aria-live="polite"
+                  >
                     <XCircle size={14} aria-hidden="true" />
                     Passwords do not match.
                   </span>

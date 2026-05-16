@@ -45,7 +45,8 @@ describe('HTTP integration: scooters + retire', () => {
     const ids = res.body.data.map((s) => s.scooterId);
     assert.ok(ids.includes('ESC-001'));
     assert.ok(ids.includes('ESC-002'));
-    assert.ok(ids.includes('ESC-003'));
+    assert.ok(ids.includes('ESC-013'));
+    assert.equal(ids.length, 13);
   });
 
   test('GET /api/admin/scooters 401 / 403 / 200', async () => {
@@ -61,7 +62,7 @@ describe('HTTP integration: scooters + retire', () => {
       .get('/api/admin/scooters')
       .set(authHeader(tokens.admin));
     assert.equal(res.status, 200);
-    assert.equal(res.body.data.length, 3);
+    assert.equal(res.body.data.length, 13);
   });
 
   test('POST /api/scooters 401 / 403 / 400 / 201 / 409', async () => {

@@ -186,7 +186,9 @@ export default function ScooterMap() {
           <div className="map-legend" aria-label="Scooter status legend">
             {LEGEND_STATUSES.map((status) => (
               <span key={status} className="map-legend__item">
-                <span className={`map-legend__dot map-legend__dot--${status}`} />
+                <span
+                  className={`map-legend__dot map-legend__dot--${status}`}
+                />
                 {toStatusLabel(status)}
               </span>
             ))}

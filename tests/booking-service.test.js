@@ -2,7 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  computeBookingPricing,
+  isSimulatorSupportedPan,
   simulatePayment,
+  validateCvv,
   validatePaymentPayload,
 } = require('../src/backend/booking-service');
 
@@ -130,6 +133,40 @@ test('simulatePayment: returns decline response for supported decline card', () 
   assert.equal(result.ok, false);
   assert.equal(result.statusCode, 402);
   assert.equal(result.message, 'Payment was declined by the simulator.');
+});
+
+test('isSimulatorSupportedPan identifies coursework simulator cards only', () => {
+  assert.equal(isSimulatorSupportedPan('4242424242424242'), true);
+  assert.equal(isSimulatorSupportedPan('4000000000000002'), true);
+  assert.equal(isSimulatorSupportedPan('4111111111111111'), false);
+});
+
+test('validateCvv accepts 3-4 digit codes', () => {
+  assert.equal(validateCvv('123').ok, true);
+  assert.equal(validateCvv('12').ok, false);
+});
+
+test('computeBookingPricing applies student discount once', () => {
+  const result = computeBookingPricing({
+    userType: 'student',
+    weeklyHours: 0,
+    baseTotalPrice: 10,
+  });
+  assert.equal(result.discountApplied, true);
+  assert.equal(result.discountReason, 'student');
+  assert.equal(result.originalPrice, 10);
+  assert.equal(result.totalPrice, 8);
+});
+
+test('computeBookingPricing applies frequent rider discount', () => {
+  const result = computeBookingPricing({
+    userType: 'standard',
+    weeklyHours: 8,
+    baseTotalPrice: 20,
+  });
+  assert.equal(result.discountApplied, true);
+  assert.equal(result.discountReason, 'frequent');
+  assert.equal(result.totalPrice, 16);
 });
 
 test('simulatePayment: rejects unsupported cards with 400', () => {

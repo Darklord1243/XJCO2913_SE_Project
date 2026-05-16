@@ -38,11 +38,7 @@
 }
 
 .fleet-page .fleet-card--accent {
-  background: linear-gradient(
-    165deg,
-    var(--surface) 0%,
-    var(--surface-2) 100%
-  );
+  background: linear-gradient(165deg, var(--surface) 0%, var(--surface-2) 100%);
 }
 
 .fleet-page .fleet-card__header {
@@ -532,6 +528,15 @@
 .plan-option.is-selected .plan-option__body {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.plan-option:not(.is-selected):hover .plan-option__body {
+  border-color: var(--text-subtle);
+}
+
+.plan-option:has(input:focus-visible) .plan-option__body {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .plan-option__top {

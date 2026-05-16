@@ -82,9 +82,13 @@ describe('HTTP integration: walk-in booking RBAC', () => {
       .post('/api/scooters')
       .set(authHeader(tokens.admin))
       .send({
-        scooterId: 'ESC-010',
+        scooterId: 'ESC-014',
         status: 'available',
-        location: { latitude: 53.8, longitude: -1.55, description: 'Test scooter' },
+        location: {
+          latitude: 53.8,
+          longitude: -1.55,
+          description: 'Test scooter',
+        },
         pricing: { oneHour: 5, fourHours: 15, oneDay: 30, oneWeek: 120 },
       });
     assert.equal(createScooterRes.status, 201);
@@ -93,7 +97,7 @@ describe('HTTP integration: walk-in booking RBAC', () => {
       .post('/api/admin/bookings')
       .set(authHeader(tokens.staff))
       .send({
-        scooterId: 'ESC-010',
+        scooterId: 'ESC-014',
         durationCode: 'fourHours',
         payment: SAMPLE_PAYMENT,
       });
@@ -104,12 +108,10 @@ describe('HTTP integration: walk-in booking RBAC', () => {
 
   test('walkin user cannot log in via POST /api/auth/login', async () => {
     // The walkin user should have been created by the first staff booking test
-    const loginRes = await request(app)
-      .post('/api/auth/login')
-      .send({
-        email: 'walkin-test@test.local',
-        password: 'any-password-will-fail',
-      });
+    const loginRes = await request(app).post('/api/auth/login').send({
+      email: 'walkin-test@test.local',
+      password: 'any-password-will-fail',
+    });
 
     assert.equal(loginRes.status, 401);
     assert.match(

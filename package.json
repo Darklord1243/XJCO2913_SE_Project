@@ -4,6 +4,7 @@
   "scripts": {
     "format": "prettier --write .",
     "db:init": "node src/backend/db/init.js",
+    "db:reset": "node scripts/reset-database.js",
     "dev": "vite src/frontend",
     "test": "node --test --test-concurrency=1 $(node tests/_list-test-files.cjs)"
   },

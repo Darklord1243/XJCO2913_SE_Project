@@ -59,6 +59,19 @@ describe('HTTP integration: stored cards RBAC (ID2/ID3)', () => {
     assert.equal(res.body.data.isDefault, true);
     // Hash must never leak into the response
     assert.equal(res.body.data.cardHash, undefined);
+    assert.equal(res.body.warning, undefined);
+  });
+
+  test('POST /api/cards 201 with warning for non-simulator PAN', async () => {
+    const res = await request(app)
+      .post('/api/cards')
+      .set(authHeader(tokens.rider))
+      .send({
+        ...SAMPLE_PAYMENT,
+        cardNumber: '4111111111111111',
+      });
+    assert.equal(res.status, 201);
+    assert.match(String(res.body.warning || ''), /simulator/i);
   });
 
   test('POST /api/cards 409 when duplicate card for same user', async () => {
@@ -209,6 +222,7 @@ describe('HTTP integration: stored cards RBAC (ID2/ID3)', () => {
         scooterId: 'ESC-002',
         durationCode: 'oneHour',
         savedCardId: cardId,
+        cvv: '123',
       });
     assert.equal(res.status, 201);
     assert.equal(res.body.success, true);
@@ -231,6 +245,24 @@ describe('HTTP integration: stored cards RBAC (ID2/ID3)', () => {
         savedCardId: cardId,
       });
     assert.equal(res.status, 403);
+  });
+
+  test('POST /api/bookings with savedCardId 400 without cvv', async () => {
+    const list = await request(app)
+      .get('/api/cards')
+      .set(authHeader(tokens.rider));
+    const cardId = list.body.data[0]?.id;
+    assert.ok(cardId);
+
+    const res = await request(app)
+      .post('/api/bookings')
+      .set(authHeader(tokens.rider))
+      .send({
+        scooterId: 'ESC-001',
+        durationCode: 'oneHour',
+        savedCardId: cardId,
+      });
+    assert.equal(res.status, 400);
   });
 
   test('POST /api/bookings with savedCardId 404 for non-existent card', async () => {
@@ -271,6 +303,7 @@ describe('HTTP integration: stored cards RBAC (ID2/ID3)', () => {
         scooterId: 'ESC-001',
         durationCode: 'oneHour',
         savedCardId: cardId,
+        cvv: '123',
         payment: DECLINE_PAYMENT, // decline card — should be ignored
       });
     assert.equal(res.status, 201);

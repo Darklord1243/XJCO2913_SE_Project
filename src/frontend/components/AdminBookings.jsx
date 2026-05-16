@@ -4,7 +4,9 @@ import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
-const API_BASE = 'http://127.0.0.1:3000/api';
+import { apiUrl } from '../utils/apiBase';
+
+const API_BASE = apiUrl('/api');
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -290,7 +292,8 @@ export default function AdminBookings({ session }) {
             </div>
           </div>
           <p className="admin-empty">
-            Sign in as a staff member or administrator to review platform bookings.
+            Sign in as a staff member or administrator to review platform
+            bookings.
           </p>
         </article>
       </section>
@@ -374,7 +377,9 @@ export default function AdminBookings({ session }) {
           </div>
           <div className="admin-kpi">
             <p className="admin-kpi__label">Revenue (filtered)</p>
-            <p className="admin-kpi__value">{formatCurrency(summary.revenue)}</p>
+            <p className="admin-kpi__value">
+              {formatCurrency(summary.revenue)}
+            </p>
           </div>
         </div>
 
@@ -400,49 +405,88 @@ export default function AdminBookings({ session }) {
           </div>
         ) : bookings.length === 0 ? (
           <div className="admin-empty-state">
-            <Inbox size={48} className="admin-empty-state__icon" aria-hidden="true" />
-            <p className="admin-empty-state__title">No bookings match the current filters</p>
-            <p className="admin-empty-state__sub">Try clearing status or scooter filters.</p>
+            <Inbox
+              size={48}
+              className="admin-empty-state__icon"
+              aria-hidden="true"
+            />
+            <p className="admin-empty-state__title">
+              No bookings match the current filters
+            </p>
+            <p className="admin-empty-state__sub">
+              Try clearing status or scooter filters.
+            </p>
           </div>
         ) : (
           <div className="admin-table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th className="data-table__th" scope="col">Booking</th>
-                  <th className="data-table__th" scope="col">Status</th>
-                  <th className="data-table__th" scope="col">User</th>
-                  <th className="data-table__th" scope="col">Scooter</th>
-                  <th className="data-table__th" scope="col">Plan</th>
-                  <th className="data-table__th" scope="col">Total</th>
-                  <th className="data-table__th" scope="col">Created</th>
-                  <th className="data-table__th" scope="col">Updated</th>
+                  <th className="data-table__th" scope="col">
+                    Booking
+                  </th>
+                  <th className="data-table__th" scope="col">
+                    Status
+                  </th>
+                  <th className="data-table__th" scope="col">
+                    User
+                  </th>
+                  <th className="data-table__th" scope="col">
+                    Scooter
+                  </th>
+                  <th className="data-table__th" scope="col">
+                    Plan
+                  </th>
+                  <th className="data-table__th" scope="col">
+                    Total
+                  </th>
+                  <th className="data-table__th" scope="col">
+                    Created
+                  </th>
+                  <th className="data-table__th" scope="col">
+                    Updated
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {bookings.map((booking) => (
                   <tr key={booking.bookingId}>
                     <td className="data-table__td" data-label="Booking">
-                      <span className="data-table__booking-id">#{booking.bookingId}</span>
+                      <span className="data-table__booking-id">
+                        #{booking.bookingId}
+                      </span>
                     </td>
                     <td className="data-table__td" data-label="Status">
-                      <span className={`status-pill status-pill--${booking.status}`}>
+                      <span
+                        className={`status-pill status-pill--${booking.status}`}
+                      >
                         {toStatusLabel(booking.status)}
                       </span>
                     </td>
                     <td className="data-table__td" data-label="User">
                       {booking.userFullName || `User #${booking.userId}`}
                       {booking.userEmail ? (
-                        <span className="data-table__user-email">{booking.userEmail}</span>
+                        <span className="data-table__user-email">
+                          {booking.userEmail}
+                        </span>
                       ) : null}
                     </td>
-                    <td className="data-table__td" data-label="Scooter">{booking.scooterId}</td>
-                    <td className="data-table__td" data-label="Plan">
-                      {DURATION_LABELS[booking.durationCode] || toStatusLabel(booking.durationCode)}
+                    <td className="data-table__td" data-label="Scooter">
+                      {booking.scooterId}
                     </td>
-                    <td className="data-table__td" data-label="Total">{formatCurrency(booking.totalPrice)}</td>
-                    <td className="data-table__td" data-label="Created">{formatDateTime(booking.createdAt)}</td>
-                    <td className="data-table__td" data-label="Updated">{formatDateTime(booking.updatedAt)}</td>
+                    <td className="data-table__td" data-label="Plan">
+                      {DURATION_LABELS[booking.durationCode] ||
+                        toStatusLabel(booking.durationCode)}
+                    </td>
+                    <td className="data-table__td" data-label="Total">
+                      {formatCurrency(booking.totalPrice)}
+                    </td>
+                    <td className="data-table__td" data-label="Created">
+                      {formatDateTime(booking.createdAt)}
+                    </td>
+                    <td className="data-table__td" data-label="Updated">
+                      {formatDateTime(booking.updatedAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -539,7 +583,10 @@ export default function AdminBookings({ session }) {
                     />
                   </div>
                   <div className="field">
-                    <label className="field__label" htmlFor="walkin-guest-email">
+                    <label
+                      className="field__label"
+                      htmlFor="walkin-guest-email"
+                    >
                       Email (for confirmation)
                     </label>
                     <input
@@ -563,7 +610,10 @@ export default function AdminBookings({ session }) {
                   </p>
                   <div className="page-form__row">
                     <div className="field">
-                      <label className="field__label" htmlFor="walkin-cardholder">
+                      <label
+                        className="field__label"
+                        htmlFor="walkin-cardholder"
+                      >
                         Cardholder name
                       </label>
                       <input
@@ -579,7 +629,10 @@ export default function AdminBookings({ session }) {
                       />
                     </div>
                     <div className="field">
-                      <label className="field__label" htmlFor="walkin-card-number">
+                      <label
+                        className="field__label"
+                        htmlFor="walkin-card-number"
+                      >
                         Card number
                       </label>
                       <input

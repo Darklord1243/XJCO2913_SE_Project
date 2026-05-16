@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { requestJson } from '../utils/api';
 
-const ADMIN_SCOOTERS_ENDPOINT = 'http://127.0.0.1:3000/api/admin/scooters';
+import { apiUrl } from '../utils/apiBase';
+
+const ADMIN_SCOOTERS_ENDPOINT = apiUrl('/api/admin/scooters');
 
 function buildContractError(message) {
   return new Error(message);

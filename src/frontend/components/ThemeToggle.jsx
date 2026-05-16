@@ -22,7 +22,11 @@ export default function ThemeToggle() {
       aria-label={nextLabel}
       title={nextLabel}
     >
-      {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+      {isDark ? (
+        <Sun size={18} aria-hidden="true" />
+      ) : (
+        <Moon size={18} aria-hidden="true" />
+      )}
     </button>
   );
 }

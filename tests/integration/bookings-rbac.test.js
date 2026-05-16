@@ -209,10 +209,7 @@ describe('HTTP integration: bookings + income RBAC', () => {
       extendRes.body.data.totalPrice > bookRes.body.data.totalPrice,
       'extended price should be higher'
     );
-    assert.equal(
-      extendRes.body.data.previousDuration,
-      'oneHour'
-    );
+    assert.equal(extendRes.body.data.previousDuration, 'oneHour');
 
     // Cleanup: cancel the extended booking
     const cancelRes = await request(app)
@@ -322,5 +319,4 @@ describe('HTTP integration: bookings + income RBAC', () => {
     assert.equal(res.status, 400);
     assert.match(res.body.error || '', /Monday/i);
   });
-
 });
