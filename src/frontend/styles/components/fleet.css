@@ -5,24 +5,27 @@
   gap: var(--space-6);
 }
 
-/* Scoped under .fleet-page to override old .fleet-layout in styles.css (Phase 10 will remove old rules) */
+/* Fleet summary panel — full-width row 1 */
+.fleet-summary-panel {
+  width: 100%;
+}
+
+.fleet-summary-panel .fleet-summary {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+/* Fleet layout — row 2: scooters + hire plans grid */
 .fleet-page .fleet-layout {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-5);
-  margin-bottom: 0;
+  align-items: start;
 }
 
 @media (min-width: 1024px) {
   .fleet-page .fleet-layout {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
     align-items: start;
-  }
-
-  .fleet-layout__main {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
   }
 }
 
@@ -310,11 +313,21 @@
 .fleet-overview__stat {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 88px;
   gap: var(--space-1);
   padding: var(--space-4);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+.fleet-overview__stat .fleet-stat__label,
+.fleet-overview__stat .fleet-stat__value {
+  width: 100%;
+  text-align: center;
 }
 
 .fleet-overview__stat--available {
@@ -609,4 +622,61 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--text);
+}
+
+/* Booking modal plan options — override legacy styles.css cascade */
+.modal .plan-grid .plan-option {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.modal .plan-grid .plan-option > input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.modal .plan-grid .plan-option__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 72px;
+  padding: var(--space-4) var(--space-5);
+  margin: 0 auto;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  transition:
+    border-color var(--motion-fast) var(--easing-out),
+    box-shadow var(--motion-fast) var(--easing-out);
+}
+
+.modal .plan-grid .plan-option.is-selected .plan-option__body {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.modal .plan-grid .plan-option__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.modal .plan-grid .plan-option__description {
+  width: 100%;
+  margin: 0;
 }

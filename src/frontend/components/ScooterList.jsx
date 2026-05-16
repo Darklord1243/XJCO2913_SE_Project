@@ -170,18 +170,6 @@ export default function ScooterList({ session, onBookingCreated }) {
     }
   }, [isBookingModalOpen, bookingScooterId]);
 
-  async function fetchSavedCards() {
-    if (!sessionToken) return;
-    try {
-      const result = await requestJson('http://127.0.0.1:3000/api/cards', {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      });
-      setSavedCards(result.data || []);
-    } catch (_) {
-      setSavedCards([]);
-    }
-  }
-
   async function openBookingModal(scooterId, triggerElement) {
     if (!isSignedIn) {
       return;
@@ -196,10 +184,28 @@ export default function ScooterList({ session, onBookingCreated }) {
     setSelectedDurationCode('oneHour');
     setPaymentForm(defaultPaymentForm);
     setBookingMessage({ text: '', state: '' });
-    setSelectedSavedCardId(null);
-    setPaymentMode('manual');
     setIsBookingModalOpen(true);
-    await fetchSavedCards();
+
+    let cards = [];
+    if (sessionToken) {
+      try {
+        const result = await requestJson('http://127.0.0.1:3000/api/cards', {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        cards = result.data || [];
+        setSavedCards(cards);
+      } catch (_) {
+        setSavedCards([]);
+      }
+    }
+
+    if (cards.length > 0) {
+      setSelectedSavedCardId(cards[0].id);
+      setPaymentMode('saved');
+    } else {
+      setSelectedSavedCardId(null);
+      setPaymentMode('manual');
+    }
   }
 
   function closeBookingModal() {
@@ -278,17 +284,15 @@ export default function ScooterList({ session, onBookingCreated }) {
   if (isLoading) {
     return (
       <section className="fleet-page" aria-live="polite">
-        <section className="fleet-layout">
-          <article className="fleet-card fleet-card--accent">
-            <div className="skeleton-grid">
-              <div className="skeleton skeleton--card" aria-hidden="true" />
-              <div className="skeleton skeleton--card" aria-hidden="true" />
-              <div className="skeleton skeleton--card" aria-hidden="true" />
-              <div className="skeleton skeleton--card" aria-hidden="true" />
-            </div>
-            <span className="sr-only">Loading scooters</span>
-          </article>
-        </section>
+        <article className="fleet-card fleet-card--accent fleet-summary-panel">
+          <div className="skeleton-grid">
+            <div className="skeleton skeleton--card" aria-hidden="true" />
+            <div className="skeleton skeleton--card" aria-hidden="true" />
+            <div className="skeleton skeleton--card" aria-hidden="true" />
+            <div className="skeleton skeleton--card" aria-hidden="true" />
+          </div>
+          <span className="sr-only">Loading scooters</span>
+        </article>
       </section>
     );
   }
@@ -296,28 +300,26 @@ export default function ScooterList({ session, onBookingCreated }) {
   if (error) {
     return (
       <section className="fleet-page">
-        <section className="fleet-layout">
-          <article className="fleet-card fleet-card--accent" data-id="ID4">
-            <div className="fleet-card__header">
-              <h2 className="fleet-card__title">View hire options and cost</h2>
-            </div>
-            <div
-              id="pricing-message"
-              className="alert alert--error"
-              role="alert"
-              aria-live="polite"
-            >
-              Could not load scooters: {error}
-            </div>
-            <button
-              type="button"
-              className="btn btn--secondary"
-              onClick={refetchScooters}
-            >
-              Retry
-            </button>
-          </article>
-        </section>
+        <article className="fleet-card fleet-card--accent fleet-summary-panel" data-id="ID4">
+          <div className="fleet-card__header">
+            <h2 className="fleet-card__title">View hire options and cost</h2>
+          </div>
+          <div
+            id="pricing-message"
+            className="alert alert--error"
+            role="alert"
+            aria-live="polite"
+          >
+            Could not load scooters: {error}
+          </div>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={refetchScooters}
+          >
+            Retry
+          </button>
+        </article>
       </section>
     );
   }
@@ -325,20 +327,18 @@ export default function ScooterList({ session, onBookingCreated }) {
   if (scooters.length === 0) {
     return (
       <section className="fleet-page">
-        <section className="fleet-layout">
-          <article className="fleet-card fleet-card--accent" data-id="ID4-ID17">
-            <div className="fleet-card__header">
-              <h2 className="fleet-card__title">Pricing and fleet availability</h2>
-            </div>
-            <div className="page-empty-state">
-              <MapPin size={48} className="page-empty-state__icon" aria-hidden="true" />
-              <p className="page-empty-state__title">No scooters available</p>
-              <p className="page-empty-state__sub">
-                No scooters are configured for hire pricing yet.
-              </p>
-            </div>
-          </article>
-        </section>
+        <article className="fleet-card fleet-card--accent fleet-summary-panel" data-id="ID4-ID17">
+          <div className="fleet-card__header">
+            <h2 className="fleet-card__title">Pricing and fleet availability</h2>
+          </div>
+          <div className="page-empty-state">
+            <MapPin size={48} className="page-empty-state__icon" aria-hidden="true" />
+            <p className="page-empty-state__title">No scooters available</p>
+            <p className="page-empty-state__sub">
+              No scooters are configured for hire pricing yet.
+            </p>
+          </div>
+        </article>
       </section>
     );
   }
@@ -349,195 +349,193 @@ export default function ScooterList({ session, onBookingCreated }) {
 
   return (
     <section className="fleet-page">
-      <section className="fleet-layout">
-        <article className="fleet-card fleet-card--accent" data-id="ID4">
-          <div className="fleet-card__header">
-            <h2 className="fleet-card__title">View hire options and cost</h2>
+      <article className="fleet-card fleet-card--accent fleet-summary-panel" data-id="ID4">
+        <div className="fleet-card__header">
+          <h2 className="fleet-card__title">View hire options and cost</h2>
+        </div>
+        <div className="fleet-summary">
+          <div className="fleet-stat">
+            <p className="fleet-stat__label">Selected scooter</p>
+            <p className="fleet-stat__value">{selectedScooter?.scooterId}</p>
           </div>
-          <div className="fleet-summary">
-            <div className="fleet-stat">
-              <p className="fleet-stat__label">Selected scooter</p>
-              <p className="fleet-stat__value">{selectedScooter?.scooterId}</p>
-            </div>
-            <div className="fleet-stat">
-              <p className="fleet-stat__label">Location</p>
-              <p className="fleet-stat__value">
-                {selectedScooter?.location?.description || 'Unknown'}
-              </p>
-            </div>
-            <div className="fleet-stat">
-              <p className="fleet-stat__label">Availability</p>
-              <p className="fleet-stat__value">
-                {toStatusLabel(selectedScooter?.status || 'unavailable')}
-              </p>
-            </div>
-            <div className="fleet-stat">
-              <p className="fleet-stat__label">Fleet ready now</p>
-              <p className="fleet-stat__value">
-                {availableCount} of {scooters.length} scooters available
-              </p>
-            </div>
+          <div className="fleet-stat">
+            <p className="fleet-stat__label">Location</p>
+            <p className="fleet-stat__value">
+              {selectedScooter?.location?.description || 'Unknown'}
+            </p>
           </div>
-          {bookingResult ? (
-            <div
-              className="fleet-confirmation"
-              role="status"
-              aria-live="polite"
-              data-id="ID5"
-            >
-              <h3 className="fleet-confirmation__title">Booking confirmed</h3>
-              <div className="fleet-confirmation__grid">
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Booking ID</p>
-                  <p className="fleet-stat__value">{bookingResult.bookingId}</p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Scooter</p>
-                  <p className="fleet-stat__value">{bookingResult.scooterId}</p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Hire plan</p>
-                  <p className="fleet-stat__value">
-                    {toStatusLabel(bookingResult.durationCode)}
-                  </p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Total price</p>
-                  <p className="fleet-stat__value">
-                    {formatCurrency(bookingResult.totalPrice)}
-                  </p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Created at</p>
-                  <p className="fleet-stat__value">
-                    {formatConfirmationTime(bookingResult.createdAt)}
-                  </p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Booking status</p>
-                  <p className="fleet-stat__value">
-                    {toStatusLabel(bookingResult.status)}
-                  </p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Scooter status</p>
-                  <p className="fleet-stat__value">
-                    {toStatusLabel(bookingResult.scooterStatus)}
-                  </p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Payment</p>
-                  <p className="fleet-stat__value">
-                    {toStatusLabel(bookingResult.paymentStatus)}
-                  </p>
-                </div>
-                <div className="fleet-stat">
-                  <p className="fleet-stat__label">Reference</p>
-                  <p className="fleet-stat__value">
-                    {bookingResult.paymentReference}
-                  </p>
-                </div>
+          <div className="fleet-stat">
+            <p className="fleet-stat__label">Availability</p>
+            <p className="fleet-stat__value">
+              {toStatusLabel(selectedScooter?.status || 'unavailable')}
+            </p>
+          </div>
+          <div className="fleet-stat">
+            <p className="fleet-stat__label">Fleet ready now</p>
+            <p className="fleet-stat__value">
+              {availableCount} of {scooters.length} scooters available
+            </p>
+          </div>
+        </div>
+        {bookingResult ? (
+          <div
+            className="fleet-confirmation"
+            role="status"
+            aria-live="polite"
+            data-id="ID5"
+          >
+            <h3 className="fleet-confirmation__title">Booking confirmed</h3>
+            <div className="fleet-confirmation__grid">
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Booking ID</p>
+                <p className="fleet-stat__value">{bookingResult.bookingId}</p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Scooter</p>
+                <p className="fleet-stat__value">{bookingResult.scooterId}</p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Hire plan</p>
+                <p className="fleet-stat__value">
+                  {toStatusLabel(bookingResult.durationCode)}
+                </p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Total price</p>
+                <p className="fleet-stat__value">
+                  {formatCurrency(bookingResult.totalPrice)}
+                </p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Created at</p>
+                <p className="fleet-stat__value">
+                  {formatConfirmationTime(bookingResult.createdAt)}
+                </p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Booking status</p>
+                <p className="fleet-stat__value">
+                  {toStatusLabel(bookingResult.status)}
+                </p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Scooter status</p>
+                <p className="fleet-stat__value">
+                  {toStatusLabel(bookingResult.scooterStatus)}
+                </p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Payment</p>
+                <p className="fleet-stat__value">
+                  {toStatusLabel(bookingResult.paymentStatus)}
+                </p>
+              </div>
+              <div className="fleet-stat">
+                <p className="fleet-stat__label">Reference</p>
+                <p className="fleet-stat__value">
+                  {bookingResult.paymentReference}
+                </p>
               </div>
             </div>
-          ) : null}
+          </div>
+        ) : null}
+      </article>
+
+      <section className="fleet-layout">
+        <article className="fleet-card">
+          <div className="fleet-card__header">
+            <p className="fleet-card__kicker">Scooters</p>
+            <h2 className="fleet-card__title">Choose a vehicle</h2>
+          </div>
+          <div className="fleet-grid" role="list" aria-live="polite">
+            {scooters.map((scooter) => (
+              <article
+                key={scooter.scooterId}
+                className={`scooter-card${
+                  selectedScooter?.scooterId === scooter.scooterId
+                    ? ' is-selected'
+                    : ''
+                }`}
+                role="listitem"
+              >
+                <div className="scooter-card__header">
+                  <span className="scooter-card__id">{scooter.scooterId}</span>
+                  <span
+                    className={`status-pill status-pill--${scooter.status}`}
+                  >
+                    {toStatusLabel(scooter.status)}
+                  </span>
+                </div>
+                <p className="scooter-card__location">
+                  <MapPin size={16} className="scooter-card__location-icon" aria-hidden="true" />
+                  {scooter.location?.description || 'Unknown'}
+                </p>
+                <p className="scooter-card__rate">
+                  Starts at {formatCurrency(scooter.pricing?.oneHour ?? 0)} per
+                  hour
+                </p>
+                <div className="scooter-card__actions">
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => setSelectedScooterId(scooter.scooterId)}
+                  >
+                    {selectedScooter?.scooterId === scooter.scooterId
+                      ? 'Selected'
+                      : 'Select'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--primary"
+                    onClick={(event) => openBookingModal(scooter.scooterId, event.currentTarget)}
+                    disabled={!isSignedIn || scooter.status !== 'available'}
+                    aria-haspopup="dialog"
+                    aria-expanded={
+                      isBookingModalOpen &&
+                      bookingScooterId === scooter.scooterId
+                    }
+                    aria-label={`Book scooter ${scooter.scooterId}`}
+                  >
+                    Book now
+                  </button>
+                </div>
+                <p className="scooter-card__hint">
+                  {!isSignedIn
+                    ? 'Sign in to start a booking confirmation.'
+                    : scooter.status !== 'available'
+                      ? 'Booking opens again when this scooter returns to available.'
+                      : 'Ready to confirm a booking from the current pricing plan.'}
+                </p>
+              </article>
+            ))}
+          </div>
         </article>
 
-        <div className="fleet-layout__main">
-          <article className="fleet-card">
-            <div className="fleet-card__header">
-              <p className="fleet-card__kicker">Scooters</p>
-              <h2 className="fleet-card__title">Choose a vehicle</h2>
-            </div>
-            <div className="fleet-grid" role="list" aria-live="polite">
-              {scooters.map((scooter) => (
-                <article
-                  key={scooter.scooterId}
-                  className={`scooter-card${
-                    selectedScooter?.scooterId === scooter.scooterId
-                      ? ' is-selected'
-                      : ''
-                  }`}
-                  role="listitem"
-                >
-                  <div className="scooter-card__header">
-                    <span className="scooter-card__id">{scooter.scooterId}</span>
-                    <span
-                      className={`status-pill status-pill--${scooter.status}`}
-                    >
-                      {toStatusLabel(scooter.status)}
-                    </span>
-                  </div>
-                  <p className="scooter-card__location">
-                    <MapPin size={16} className="scooter-card__location-icon" aria-hidden="true" />
-                    {scooter.location?.description || 'Unknown'}
+        <article className="fleet-card">
+          <div className="fleet-card__header">
+            <p className="fleet-card__kicker">Pricing</p>
+            <h2 className="fleet-card__title">Hire plans</h2>
+          </div>
+          <div className="fleet-plans" role="list" aria-live="polite">
+            {hirePlanConfig.map((plan) => {
+              const planPrice = selectedScooter?.pricing?.[plan.key] ?? 0;
+              return (
+                <article key={plan.key} className="fleet-plan-card">
+                  <h3 className="fleet-plan-card__title">{plan.title}</h3>
+                  <p className="fleet-plan-card__price">{formatCurrency(planPrice)}</p>
+                  <p className="fleet-plan-card__meta">
+                    {plan.durationHours === 1
+                      ? 'Flexible pay-as-you-go rate'
+                      : `${formatCurrency(
+                          planPrice / plan.durationHours
+                        )} average per hour`}
                   </p>
-                  <p className="scooter-card__rate">
-                    Starts at {formatCurrency(scooter.pricing?.oneHour ?? 0)} per
-                    hour
-                  </p>
-                  <div className="scooter-card__actions">
-                    <button
-                      type="button"
-                      className="btn btn--secondary"
-                      onClick={() => setSelectedScooterId(scooter.scooterId)}
-                    >
-                      {selectedScooter?.scooterId === scooter.scooterId
-                        ? 'Selected'
-                        : 'Select'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--primary"
-                      onClick={(event) => openBookingModal(scooter.scooterId, event.currentTarget)}
-                      disabled={!isSignedIn || scooter.status !== 'available'}
-                      aria-haspopup="dialog"
-                      aria-expanded={
-                        isBookingModalOpen &&
-                        bookingScooterId === scooter.scooterId
-                      }
-                      aria-label={`Book scooter ${scooter.scooterId}`}
-                    >
-                      Book now
-                    </button>
-                  </div>
-                  <p className="scooter-card__hint">
-                    {!isSignedIn
-                      ? 'Sign in to start a booking confirmation.'
-                      : scooter.status !== 'available'
-                        ? 'Booking opens again when this scooter returns to available.'
-                        : 'Ready to confirm a booking from the current pricing plan.'}
-                  </p>
+                  <p className="fleet-plan-card__note">{plan.description}</p>
                 </article>
-              ))}
-            </div>
-          </article>
-
-          <article className="fleet-card">
-            <div className="fleet-card__header">
-              <p className="fleet-card__kicker">Pricing</p>
-              <h2 className="fleet-card__title">Hire plans</h2>
-            </div>
-            <div className="fleet-plans" role="list" aria-live="polite">
-              {hirePlanConfig.map((plan) => {
-                const planPrice = selectedScooter?.pricing?.[plan.key] ?? 0;
-                return (
-                  <article key={plan.key} className="fleet-plan-card">
-                    <h3 className="fleet-plan-card__title">{plan.title}</h3>
-                    <p className="fleet-plan-card__price">{formatCurrency(planPrice)}</p>
-                    <p className="fleet-plan-card__meta">
-                      {plan.durationHours === 1
-                        ? 'Flexible pay-as-you-go rate'
-                        : `${formatCurrency(
-                            planPrice / plan.durationHours
-                          )} average per hour`}
-                    </p>
-                    <p className="fleet-plan-card__note">{plan.description}</p>
-                  </article>
-                );
-              })}
-            </div>
-          </article>
-        </div>
+              );
+            })}
+          </div>
+        </article>
       </section>
 
       <section className="fleet-overview-section">
@@ -639,6 +637,19 @@ export default function ScooterList({ session, onBookingCreated }) {
                   </p>
                 </div>
 
+                {isSignedIn ? (
+                  <p className="fleet-modal__payment-note">
+                    Payments are simulated for this coursework build (no real
+                    charge).
+                    {session?.user?.userType === 'student' ||
+                    session?.user?.userType === 'senior'
+                      ? ' Your account type qualifies for a 20% discount applied at checkout.'
+                      : " Students and seniors receive 20% off (selected at registration). Frequent riders (8+ hire hours in 7 days) also receive 20% off."}{' '}
+                    Price shown is the plan rate; final total is confirmed by the
+                    server.
+                  </p>
+                ) : null}
+
                 {savedCards.length > 0 ? (
                   <fieldset className="plan-grid">
                     <legend>Payment method</legend>
@@ -717,7 +728,7 @@ export default function ScooterList({ session, onBookingCreated }) {
                     {SHOW_PAYMENT_SIMULATOR ? (
                       <div className="fleet-modal__summary">
                         <p className="fleet-modal__label">
-                          Payment simulator (dev only)
+                          Test card numbers (development only)
                         </p>
                         <p className="fleet-modal__payment-note">
                           Use <strong>4242 4242 4242 4242</strong> to simulate a
