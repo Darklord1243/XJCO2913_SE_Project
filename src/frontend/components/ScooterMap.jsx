@@ -15,6 +15,8 @@ const STATUS_COLOURS = {
   offline: '#6b7280',
 };
 
+const LEGEND_STATUSES = Object.keys(STATUS_COLOURS);
+
 function toStatusLabel(status) {
   return String(status || '')
     .split(/[_-]/)
@@ -37,6 +39,26 @@ function createCircleIcon(colour) {
   });
 }
 
+function buildPopupHtml(scooter) {
+  const status = scooter?.status || 'offline';
+  const safeStatus = LEGEND_STATUSES.includes(status) ? status : 'offline';
+  const location = scooter?.location?.description || 'Unknown location';
+  const price = formatCurrency(scooter?.pricing?.oneHour ?? 0);
+
+  return `<div class="map-popup">
+    <p class="map-popup__title">${scooter?.scooterId ?? 'Unknown'}</p>
+    <span class="map-popup__status map-popup__status--${safeStatus}">${toStatusLabel(safeStatus)}</span>
+    <div class="map-popup__row">
+      <span class="map-popup__row-label">Location</span>
+      <span class="map-popup__row-value">${location}</span>
+    </div>
+    <div class="map-popup__row">
+      <span class="map-popup__row-label">From</span>
+      <span class="map-popup__row-value">${price}/hr</span>
+    </div>
+  </div>`;
+}
+
 export default function ScooterMap() {
   const { scooters, isLoading, error } = useScooters();
   const mapContainerRef = useRef(null);
@@ -49,7 +71,6 @@ export default function ScooterMap() {
       return '';
     }
 
-    // Keep the signature stable even if item order changes.
     return scooterList
       .map((scooter) => ({
         scooterId: scooter?.scooterId ?? '',
@@ -73,7 +94,6 @@ export default function ScooterMap() {
       .join('||');
   }
 
-  // Initialise map once
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) {
       return;
@@ -99,7 +119,6 @@ export default function ScooterMap() {
     };
   }, []);
 
-  // Update markers whenever scooters change
   useEffect(() => {
     const map = mapInstanceRef.current;
 
@@ -113,7 +132,6 @@ export default function ScooterMap() {
       return;
     }
 
-    // Remove old markers
     for (const marker of markersRef.current) {
       map.removeLayer(marker);
     }
@@ -121,6 +139,7 @@ export default function ScooterMap() {
     markersRef.current = [];
 
     if (!Array.isArray(scooters) || scooters.length === 0) {
+      markerDataSignatureRef.current = nextSignature;
       return;
     }
 
@@ -137,14 +156,7 @@ export default function ScooterMap() {
 
       const marker = L.marker([lat, lng], { icon }).addTo(map);
 
-      marker.bindPopup(
-        `<div style="font-family:inherit; line-height:1.5;">
-          <strong>${scooter.scooterId}</strong><br/>
-          <span style="color:${colour}; font-weight:600;">● ${toStatusLabel(scooter.status)}</span><br/>
-          ${scooter.location?.description || 'Unknown location'}<br/>
-          From ${formatCurrency(scooter.pricing?.oneHour ?? 0)}/hr
-        </div>`
-      );
+      marker.bindPopup(buildPopupHtml(scooter));
 
       markersRef.current.push(marker);
     }
@@ -153,38 +165,31 @@ export default function ScooterMap() {
   }, [scooters]);
 
   return (
-    <section className="map-view">
-      <article className="panel panel-accent panel-wide" data-id="ID18">
-        <div className="panel-header">
-          <h2>Scooter locations</h2>
+    <section className="map-shell" data-id="ID18">
+      <header className="map-header">
+        <h2 className="map-title">Scooter locations</h2>
+      </header>
+
+      {isLoading ? (
+        <p className="map-loading">Loading map data...</p>
+      ) : null}
+
+      {!isLoading && error ? (
+        <div className="alert alert--error" role="alert">
+          Could not load scooter data: {error}
         </div>
+      ) : null}
 
-        {isLoading ? (
-          <p className="empty-state">Loading map data...</p>
-        ) : error ? (
-          <p className="message" data-state="error" role="alert">
-            Could not load scooter data: {error}
-          </p>
-        ) : null}
+      <div className="map-legend" aria-label="Scooter status legend">
+        {LEGEND_STATUSES.map((status) => (
+          <span key={status} className="map-legend__item">
+            <span className={`map-legend__dot map-legend__dot--${status}`} />
+            {toStatusLabel(status)}
+          </span>
+        ))}
+      </div>
 
-        <div className="map-legend">
-          {Object.entries(STATUS_COLOURS).map(([status, colour]) => (
-            <span key={status} className="map-legend__item">
-              <span
-                className="map-legend__dot"
-                style={{ background: colour }}
-              />
-              {toStatusLabel(status)}
-            </span>
-          ))}
-        </div>
-
-        <div
-          ref={mapContainerRef}
-          className="leaflet-map-container"
-          style={{ height: '480px', width: '100%', borderRadius: '8px' }}
-        />
-      </article>
+      <div ref={mapContainerRef} className="map-container" />
     </section>
   );
 }
