@@ -18,6 +18,25 @@ const DURATION_LABELS = {
   oneWeek: '1 Week',
 };
 
+const DURATION_OPTIONS = [
+  { value: '', label: 'Select a plan...' },
+  { value: 'oneHour', label: '1 Hour' },
+  { value: 'fourHours', label: '4 Hours' },
+  { value: 'oneDay', label: '1 Day' },
+  { value: 'oneWeek', label: '1 Week' },
+];
+
+const INITIAL_WALKIN_FORM = {
+  scooterId: '',
+  durationCode: '',
+  cardholderName: '',
+  cardNumber: '',
+  expiryDate: '',
+  cvv: '',
+  guestName: '',
+  guestEmail: '',
+};
+
 function formatDateTime(value) {
   if (!value) {
     return 'Not available';
@@ -49,6 +68,12 @@ export default function AdminBookings({ session }) {
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Walk-in modal state
+  const [showWalkinModal, setShowWalkinModal] = useState(false);
+  const [walkinForm, setWalkinForm] = useState(INITIAL_WALKIN_FORM);
+  const [walkinSubmitting, setWalkinSubmitting] = useState(false);
+  const [walkinMessage, setWalkinMessage] = useState({ text: '', state: '' });
 
   const fetchBookings = useCallback(
     async (signal) => {
@@ -141,6 +166,71 @@ export default function AdminBookings({ session }) {
     return { total, active, completed, revenue };
   }, [bookings]);
 
+  // Walk-in form handlers
+  function updateWalkinField(field, value) {
+    setWalkinForm((prev) => ({ ...prev, [field]: value }));
+    setWalkinMessage({ text: '', state: '' });
+  }
+
+  function openWalkinModal() {
+    setWalkinForm(INITIAL_WALKIN_FORM);
+    setWalkinMessage({ text: '', state: '' });
+    setShowWalkinModal(true);
+  }
+
+  async function handleWalkinSubmit(event) {
+    event.preventDefault();
+
+    if (!token) {
+      setWalkinMessage({
+        text: 'You must be signed in as a staff member or administrator to create a walk-in booking.',
+        state: 'error',
+      });
+      return;
+    }
+
+    setWalkinSubmitting(true);
+    setWalkinMessage({ text: '', state: '' });
+
+    try {
+      const payload = await requestJson(`${API_BASE}/admin/bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          scooterId: walkinForm.scooterId.trim(),
+          durationCode: walkinForm.durationCode,
+          payment: {
+            cardholderName: walkinForm.cardholderName.trim(),
+            cardNumber: walkinForm.cardNumber.trim(),
+            expiryDate: walkinForm.expiryDate.trim(),
+            cvv: walkinForm.cvv.trim(),
+          },
+          guestName: walkinForm.guestName.trim() || undefined,
+          guestEmail: walkinForm.guestEmail.trim() || undefined,
+        }),
+      });
+
+      setWalkinMessage({
+        text: `Walk-in booking created. Booking #${payload.data.bookingId}, £${(payload.data.totalPrice ?? 0).toFixed(2)}.`,
+        state: 'success',
+      });
+
+      // Refresh the bookings list
+      const controller = new AbortController();
+      await fetchBookings(controller.signal);
+    } catch (submitError) {
+      setWalkinMessage({
+        text: submitError?.message || 'Failed to create walk-in booking.',
+        state: 'error',
+      });
+    } finally {
+      setWalkinSubmitting(false);
+    }
+  }
+
   if (!token) {
     return (
       <section className="my-bookings-view">
@@ -149,7 +239,7 @@ export default function AdminBookings({ session }) {
             <h2>Bookings overview</h2>
           </div>
           <p className="empty-state">
-            Sign in as an administrator to review platform bookings.
+            Sign in as a staff member or administrator to review platform bookings.
           </p>
         </article>
       </section>
@@ -159,9 +249,14 @@ export default function AdminBookings({ session }) {
   return (
     <section className="my-bookings-view">
       <article className="panel panel-accent panel-wide">
-        <div className="panel-header">
-          <p className="panel-kicker">Admin</p>
-          <h2>Bookings overview</h2>
+        <div className="panel-header panel-header--row">
+          <div>
+            <p className="panel-kicker">Admin</p>
+            <h2>Bookings overview</h2>
+          </div>
+          <button type="button" onClick={openWalkinModal}>
+            Book Walk-in
+          </button>
         </div>
 
         <div className="admin-filter-grid">
@@ -291,6 +386,177 @@ export default function AdminBookings({ session }) {
           </div>
         )}
       </article>
+
+      {/* Walk-in booking modal */}
+      {showWalkinModal && (
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-label="Book walk-in customer"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowWalkinModal(false);
+            }
+          }}
+        >
+          <div className="modal-window">
+            <h3>Book Walk-in Customer</h3>
+
+            <form className="form-grid" onSubmit={handleWalkinSubmit}>
+              <label htmlFor="walkin-scooter">
+                Scooter ID
+                <input
+                  id="walkin-scooter"
+                  type="text"
+                  placeholder="ESC-001"
+                  value={walkinForm.scooterId}
+                  onChange={(e) =>
+                    updateWalkinField('scooterId', e.target.value)
+                  }
+                  required
+                />
+              </label>
+
+              <label htmlFor="walkin-duration">
+                Hire plan
+                <select
+                  id="walkin-duration"
+                  value={walkinForm.durationCode}
+                  onChange={(e) =>
+                    updateWalkinField('durationCode', e.target.value)
+                  }
+                  required
+                >
+                  {DURATION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <fieldset className="plan-selector">
+                <legend className="form-section-title">
+                  Guest details (optional)
+                </legend>
+                <label htmlFor="walkin-guest-name">
+                  Name
+                  <input
+                    id="walkin-guest-name"
+                    type="text"
+                    placeholder="Jane Doe"
+                    value={walkinForm.guestName}
+                    onChange={(e) =>
+                      updateWalkinField('guestName', e.target.value)
+                    }
+                  />
+                </label>
+                <label htmlFor="walkin-guest-email">
+                  Email (for confirmation)
+                  <input
+                    id="walkin-guest-email"
+                    type="email"
+                    placeholder="jane@example.com"
+                    value={walkinForm.guestEmail}
+                    onChange={(e) =>
+                      updateWalkinField('guestEmail', e.target.value)
+                    }
+                  />
+                </label>
+              </fieldset>
+
+              <fieldset className="plan-selector">
+                <legend className="form-section-title">
+                  Payment (simulated)
+                </legend>
+                <div className="payment-grid">
+                  <label htmlFor="walkin-cardholder">
+                    Cardholder name
+                    <input
+                      id="walkin-cardholder"
+                      type="text"
+                      placeholder="Jane Doe"
+                      value={walkinForm.cardholderName}
+                      onChange={(e) =>
+                        updateWalkinField('cardholderName', e.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                  <label htmlFor="walkin-card-number">
+                    Card number (16 digits)
+                    <input
+                      id="walkin-card-number"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="4242 4242 4242 4242"
+                      value={walkinForm.cardNumber}
+                      onChange={(e) =>
+                        updateWalkinField('cardNumber', e.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                  <label htmlFor="walkin-expiry">
+                    Expiry (MM/YY)
+                    <input
+                      id="walkin-expiry"
+                      type="text"
+                      placeholder="12/30"
+                      value={walkinForm.expiryDate}
+                      onChange={(e) =>
+                        updateWalkinField('expiryDate', e.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                  <label htmlFor="walkin-cvv">
+                    CVV
+                    <input
+                      id="walkin-cvv"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="123"
+                      value={walkinForm.cvv}
+                      onChange={(e) =>
+                        updateWalkinField('cvv', e.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                </div>
+                <p className="payment-note">
+                  Use 4242 4242 4242 4242 for success or 4000 0000 0000 0002
+                  for decline (simulator only).
+                </p>
+              </fieldset>
+
+              {walkinMessage.text ? (
+                <p
+                  className="message"
+                  data-state={walkinMessage.state}
+                  role="alert"
+                >
+                  {walkinMessage.text}
+                </p>
+              ) : null}
+
+              <div className="modal-actions">
+                <button type="submit" disabled={walkinSubmitting}>
+                  {walkinSubmitting ? 'Booking...' : 'Create booking'}
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => setShowWalkinModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

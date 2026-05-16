@@ -32,6 +32,8 @@ export function getRoleLabel(session) {
       return 'Senior';
     case 'standard':
       return 'Customer';
+    case 'walkin':
+      return 'Walk-in';
     default:
       return 'Guest';
   }

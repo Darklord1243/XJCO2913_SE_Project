@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   user_type TEXT NOT NULL DEFAULT 'standard' CHECK (
-    user_type IN ('standard', 'student', 'senior', 'staff', 'admin')
+    user_type IN ('standard', 'student', 'senior', 'staff', 'admin', 'walkin')
   ),
   password_salt TEXT NOT NULL,
   password_hash TEXT NOT NULL,
@@ -61,6 +61,20 @@ CREATE TABLE IF NOT EXISTS issues (
   FOREIGN KEY (scooter_id) REFERENCES scooters (scooter_id) ON DELETE CASCADE
 );
 
+-- ID2/ID3: Stored customer cards. Only last4 + deterministic SHA-256 hash of
+-- the normalized PAN are persisted; raw card number and CVV never touch the DB.
+-- The hash is unique per-user to prevent duplicate card entries.
+CREATE TABLE IF NOT EXISTS stored_cards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  card_last4 TEXT NOT NULL CHECK (length(card_last4) = 4),
+  card_brand TEXT,
+  card_hash TEXT NOT NULL,
+  is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_scooters_status ON scooters (status);
 CREATE INDEX IF NOT EXISTS idx_scooters_location ON scooters (latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings (user_id);
@@ -68,3 +82,5 @@ CREATE INDEX IF NOT EXISTS idx_bookings_scooter_id ON bookings (scooter_id);
 CREATE INDEX IF NOT EXISTS idx_issues_user_id ON issues (user_id);
 CREATE INDEX IF NOT EXISTS idx_issues_scooter_id ON issues (scooter_id);
 CREATE INDEX IF NOT EXISTS idx_issues_status ON issues (status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stored_cards_user_hash ON stored_cards (user_id, card_hash);
+CREATE INDEX IF NOT EXISTS idx_stored_cards_user_id ON stored_cards (user_id);

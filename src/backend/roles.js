@@ -20,6 +20,7 @@ const PRIVILEGED_USER_TYPES = new Set(['staff', 'admin']);
 const ALL_USER_TYPES = new Set([
   ...REGULAR_USER_TYPES,
   ...PRIVILEGED_USER_TYPES,
+  'walkin',
 ]);
 const SELF_REGISTRABLE_USER_TYPES = new Set(REGULAR_USER_TYPES);
 

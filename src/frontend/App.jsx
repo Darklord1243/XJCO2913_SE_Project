@@ -8,6 +8,7 @@ import Income from './components/Income';
 import Layout from './components/Layout.jsx';
 import MyBookings from './components/MyBookings';
 import ReportIssue from './components/ReportIssue';
+import SavedCards from './components/SavedCards';
 import ScooterList from './components/ScooterList';
 import ScooterMap from './components/ScooterMap';
 import { isAdminSession } from './roles';
@@ -90,6 +91,10 @@ export default function App() {
                         refreshKey={bookingRefreshKey}
                       />
                     }
+                  />
+                  <Route
+                    path="cards"
+                    element={<SavedCards session={session} />}
                   />
                   <Route
                     path="report-issue"

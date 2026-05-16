@@ -5,6 +5,7 @@ const CUSTOMER_NAV_ITEMS = [
   { to: '/map', label: 'Map' },
   { to: '/fleet', label: 'Fleet' },
   { to: '/bookings', label: 'My Bookings' },
+  { to: '/cards', label: 'My Cards' },
   { to: '/report-issue', label: 'Report Issue' },
 ];
 

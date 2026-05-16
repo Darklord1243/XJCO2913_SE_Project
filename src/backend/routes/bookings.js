@@ -1,21 +1,41 @@
 const express = require('express');
-const { authenticateRequest, requireAdmin } = require('../auth-middleware');
+const {
+  authenticateRequest,
+  requireAdmin,
+  requireStaff,
+} = require('../auth-middleware');
 const {
   calculateWeeklyUserHours,
   createBookingInTransaction,
   durationCodes,
+  hashCardPan,
   normalizeId,
   normalizeText,
   pricingColumnMap,
   simulatePayment,
   validatePaymentPayload,
 } = require('../booking-service');
-const { transactionMutex } = require('../database');
+const {
+  createUser,
+  findUserByEmail,
+  transactionMutex,
+} = require('../database');
+const { sendBookingConfirmation } = require('../email-service');
 const db = require('../db/connection');
 
 const DISCOUNTED_USER_TYPES = new Set(['student', 'senior']);
 const FREQUENT_USER_HOURS_THRESHOLD = 8;
 const DISCOUNT_MULTIPLIER = 0.8;
+
+// Reverse lookup: stored-card hash → simulator card number.
+// The hash is deterministic (SHA-256 of normalised PAN) so we can recover the
+// simulator inputs from a saved card without storing the raw PAN. In a real
+// system the PAN would never reach our servers — a payment processor would
+// return an opaque token.
+const SIMULATOR_CARD_BY_HASH = {
+  [hashCardPan('4242424242424242')]: '4242424242424242',
+  [hashCardPan('4000000000000002')]: '4000000000000002',
+};
 
 function roundToTwoDecimals(value) {
   return Math.round(value * 100) / 100;
@@ -162,6 +182,62 @@ router.post('/bookings', async (req, res) => {
       });
     }
 
+    // Resolve payment source: savedCardId takes precedence over manual entry.
+    // Validated before scooter availability so card-ownership errors surface
+    // with clear 4xx codes rather than ambiguous 409s.
+    let paymentSource;
+
+    const savedCardId = req.body?.savedCardId;
+
+    if (savedCardId !== undefined && savedCardId !== null) {
+      if (!Number.isInteger(savedCardId) || savedCardId <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'savedCardId must be a positive integer.',
+        });
+      }
+
+      const card = await dbGet(
+        'SELECT id, user_id, card_hash FROM stored_cards WHERE id = ?;',
+        [savedCardId]
+      );
+
+      if (!card) {
+        return res.status(404).json({
+          success: false,
+          error: 'Saved card not found.',
+        });
+      }
+
+      if (card.user_id !== user.id) {
+        return res.status(403).json({
+          success: false,
+          error: 'You can only use your own saved cards.',
+        });
+      }
+
+      const resolvedCardNumber = SIMULATOR_CARD_BY_HASH[card.card_hash];
+
+      if (!resolvedCardNumber) {
+        return res.status(400).json({
+          success: false,
+          error: 'Saved card cannot be used with the payment simulator.',
+        });
+      }
+
+      // Build a synthetic payment payload from the resolved card number.
+      // Expiry and CVV are placeholders — the simulator only validates the
+      // card number, and the real card was already validated when saved.
+      paymentSource = {
+        cardholderName: user.full_name || 'Cardholder',
+        cardNumber: resolvedCardNumber,
+        expiryDate: '12/30',
+        cvv: '123',
+      };
+    } else {
+      paymentSource = req.body?.payment;
+    }
+
     const scooter = await getScooterPricingSnapshot(scooterId);
 
     if (!scooter) {
@@ -230,7 +306,7 @@ router.post('/bookings', async (req, res) => {
       ? roundToTwoDecimals(baseTotalPrice * DISCOUNT_MULTIPLIER)
       : originalPrice;
 
-    const paymentValidation = validatePaymentPayload(req.body?.payment);
+    const paymentValidation = validatePaymentPayload(paymentSource);
 
     if (!paymentValidation.ok) {
       return res.status(400).json({
@@ -270,6 +346,9 @@ router.post('/bookings', async (req, res) => {
 
       throw transactionError;
     }
+
+    // Fire-and-forget: email confirmation (errors logged internally, never thrown)
+    sendBookingConfirmation(createdBooking, user, scooter);
 
     return res.status(201).json({
       success: true,
@@ -586,6 +665,306 @@ router.get('/bookings/income/weekly', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch weekly income.',
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ID 20: Daily income breakdown within a week (administrator only)
+// ---------------------------------------------------------------------------
+
+router.get('/bookings/income/daily', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req, res);
+
+    if (!user) {
+      return;
+    }
+
+    if (!requireAdmin(res, user)) {
+      return;
+    }
+
+    // Accept optional weekStart query (YYYY-MM-DD); validate it is a Monday
+    let weekStart;
+    const qsWeekStart = normalizeText(req.query?.weekStart);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(qsWeekStart)) {
+      const parsed = new Date(`${qsWeekStart}T00:00:00Z`);
+      if (parsed.getUTCDay() !== 1) {
+        return res.status(400).json({
+          success: false,
+          error: 'weekStart must be a Monday (ISO week).',
+        });
+      }
+      weekStart = qsWeekStart;
+    } else {
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      weekStart = monday.toISOString().slice(0, 10);
+    }
+
+    // weekEnd = weekStart + 7 days (exclusive upper bound)
+    const weekEndDate = new Date(`${weekStart}T00:00:00Z`);
+    weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 7);
+    const weekEnd = weekEndDate.toISOString().slice(0, 10);
+
+    const rows = await dbAll(
+      `SELECT date(created_at) AS booking_date,
+              duration_code,
+              SUM(total_price) AS total_income,
+              COUNT(*)         AS booking_count
+       FROM bookings
+       WHERE date(created_at) >= ? AND date(created_at) < ?
+       GROUP BY booking_date, duration_code
+       ORDER BY booking_date;`,
+      [weekStart, weekEnd]
+    );
+
+    // Build 7 zero-filled day entries
+    const days = [];
+    const cursor = new Date(`${weekStart}T00:00:00Z`);
+
+    for (let i = 0; i < 7; i++) {
+      const dateStr = cursor.toISOString().slice(0, 10);
+      days.push({
+        date: dateStr,
+        totalIncome: 0,
+        bookingCount: 0,
+        breakdown: {
+          oneHour: 0,
+          fourHours: 0,
+          oneDay: 0,
+          oneWeek: 0,
+        },
+      });
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    let grandTotal = 0;
+
+    for (const row of rows) {
+      const day = days.find((d) => d.date === row.booking_date);
+      if (!day) continue;
+
+      const income = row.total_income ?? 0;
+      const count = row.booking_count ?? 0;
+
+      day.totalIncome += income;
+      day.bookingCount += count;
+      grandTotal += income;
+
+      if (day.breakdown.hasOwnProperty(row.duration_code)) {
+        day.breakdown[row.duration_code] += income;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        weekStart,
+        weekEnd,
+        days,
+        grandTotal,
+      },
+    });
+  } catch (error) {
+    console.error('GET /api/bookings/income/daily failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch daily income.',
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ID 9: Staff walk-in booking (staff or admin)
+// ---------------------------------------------------------------------------
+
+const WALKIN_PLACEHOLDER_SALT = 'walkin';
+const WALKIN_PLACEHOLDER_HASH =
+  '0000000000000000000000000000000000000000000000000000000000000000';
+const WALKIN_INTERNAL_EMAIL = 'walkin@escooter.internal';
+
+async function resolveWalkinUser({ guestEmail, guestName }) {
+  const email = (guestEmail || '').trim().toLowerCase();
+
+  if (email) {
+    const existing = await findUserByEmail(email);
+
+    if (existing) {
+      // If the email matches an existing account (any type, including another
+      // walkin), reuse it — the booking is bound to that user.
+      return existing;
+    }
+
+    // Create a new walkin user with unusable placeholder credentials
+    return createUser({
+      fullName: (guestName || '').trim() || 'Walk-in Customer',
+      email,
+      userType: 'walkin',
+      passwordSalt: WALKIN_PLACEHOLDER_SALT,
+      passwordHash: WALKIN_PLACEHOLDER_HASH,
+    });
+  }
+
+  // No guest email — use the internal walkin placeholder (seeded by migration)
+  const internal = await findUserByEmail(WALKIN_INTERNAL_EMAIL);
+
+  if (!internal) {
+    // Migration hasn't run yet; create the placeholder on the fly
+    return createUser({
+      fullName: 'Walk-in Customer',
+      email: WALKIN_INTERNAL_EMAIL,
+      userType: 'walkin',
+      passwordSalt: WALKIN_PLACEHOLDER_SALT,
+      passwordHash: WALKIN_PLACEHOLDER_HASH,
+    });
+  }
+
+  return internal;
+}
+
+router.post('/admin/bookings', async (req, res) => {
+  try {
+    const staffUser = await authenticateRequest(req, res);
+
+    if (!staffUser) {
+      return;
+    }
+
+    if (!requireStaff(res, staffUser)) {
+      return;
+    }
+
+    const scooterId = normalizeId(req.body?.scooterId);
+
+    if (!scooterId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Scooter ID is required.',
+      });
+    }
+
+    const scooter = await getScooterPricingSnapshot(scooterId);
+
+    if (!scooter) {
+      return res.status(404).json({
+        success: false,
+        error: 'Scooter not found.',
+      });
+    }
+
+    if (scooter.status !== 'available') {
+      return res.status(409).json({
+        success: false,
+        error: 'Scooter is not available for booking.',
+      });
+    }
+
+    const durationCode = normalizeText(req.body?.durationCode);
+
+    if (!durationCodes.includes(durationCode)) {
+      return res.status(400).json({
+        success: false,
+        error: `Duration code must be one of: ${durationCodes.join(', ')}.`,
+      });
+    }
+
+    const baseTotalPrice = scooter[pricingColumnMap[durationCode]];
+
+    if (
+      typeof baseTotalPrice !== 'number' ||
+      !Number.isFinite(baseTotalPrice) ||
+      baseTotalPrice < 0
+    ) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to determine booking price.',
+      });
+    }
+
+    // Walk-in bookings: no discount applied (walkin / internal users are not
+    // students, seniors, or frequent users)
+    const totalPrice = roundToTwoDecimals(baseTotalPrice);
+
+    const paymentValidation = validatePaymentPayload(req.body?.payment);
+
+    if (!paymentValidation.ok) {
+      return res.status(400).json({
+        success: false,
+        error: paymentValidation.message,
+      });
+    }
+
+    const paymentResult = simulatePayment(paymentValidation.value);
+
+    if (!paymentResult.ok) {
+      return res.status(paymentResult.statusCode).json({
+        success: false,
+        error: paymentResult.message,
+      });
+    }
+
+    // Resolve the target user for this walk-in booking
+    const targetUser = await resolveWalkinUser({
+      guestEmail: req.body?.guestEmail,
+      guestName: req.body?.guestName,
+    });
+
+    let createdBooking;
+
+    try {
+      createdBooking = await createBookingInTransaction({
+        dbRun,
+        dbGet,
+        userId: targetUser.id,
+        scooterId,
+        durationCode,
+        totalPrice,
+        transactionMutex,
+      });
+    } catch (transactionError) {
+      if (transactionError.statusCode) {
+        return res.status(transactionError.statusCode).json({
+          success: false,
+          error: transactionError.clientMessage,
+        });
+      }
+
+      throw transactionError;
+    }
+
+    // Fire-and-forget email only when a real guest email was provided (skip
+    // for internal walkin placeholder — no one reads that inbox).
+    const guestEmailTrimmed = (req.body?.guestEmail || '').trim().toLowerCase();
+    if (guestEmailTrimmed && targetUser.email === guestEmailTrimmed) {
+      sendBookingConfirmation(createdBooking, targetUser, scooter);
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        ...mapBookingRow(createdBooking),
+        paymentStatus: paymentResult.value.paymentStatus,
+        paymentReference: paymentResult.value.paymentReference,
+        scooterStatus: 'in_use',
+        discountApplied: false,
+        originalPrice: totalPrice,
+        guestEmail:
+          targetUser.email !== WALKIN_INTERNAL_EMAIL
+            ? targetUser.email
+            : undefined,
+      },
+    });
+  } catch (error) {
+    console.error('POST /api/admin/bookings failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create walk-in booking.',
     });
   }
 });

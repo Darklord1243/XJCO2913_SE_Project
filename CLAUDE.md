@@ -31,6 +31,21 @@ npm run format
 - The backend API serves the frontend on the same port in production; in dev, Vite runs its own dev server (usually port 5173).
 - `npm test` uses `--test-concurrency=1` because tests share a process-global SQLite handle.
 
+### Email notifications (ID7)
+
+Booking confirmation emails are sent via SMTP (Node built-in `net`, no external deps).
+Configure via environment variables; if `SMTP_HOST` is unset, email is silently disabled
+and a warning is logged at startup. See `.env.example` for all variables.
+
+```bash
+# Local dev with Mailpit (catch-all, no real send):
+#   docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+SMTP_HOST=localhost SMTP_PORT=1025 node src/backend/server.js
+```
+
+The `sendBookingConfirmation` call is fire-and-forget — email failure never affects the
+HTTP response (errors are logged, not thrown).
+
 ## Architecture
 
 ### Backend (Express 5 + SQLite3)
@@ -44,6 +59,7 @@ src/backend/
   auth-middleware.js  authenticateRequest, requireAdmin, requireStaff
   roles.js           Canonical role model (standard/student/senior/staff/admin)
   booking-service.js Payment simulator, booking transaction, weekly hours calculation
+  email-service.js  SMTP booking confirmation emails (fire-and-forget, configurable via env)
   scooter-service.js Scooter payload validation (shared by POST and PUT)
   routes/
     auth.js          POST /api/auth/register, POST /api/auth/login
@@ -105,6 +121,7 @@ database/
 tests/
   _list-test-files.cjs       Discovers test files for npm test
   auth-rbac.test.js           Unit tests for roles, auth-service
+  email-service.test.js       Unit tests for email-service (mocked SMTP)
   scooter-service.test.js     Unit tests for validateScooterPayload
   integration/
     _setup.js                 createTestApp, seedUser, mintToken, authHeader
