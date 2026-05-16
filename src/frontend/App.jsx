@@ -41,70 +41,71 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="shell app-layout">
         {session ? (
-          <Routes>
-            <Route path="/" element={<Navigate to={homePath} replace />} />
-            <Route
-              element={<Layout session={session} onLogout={handleLogout} />}
-            >
-              {isAdmin ? (
-                <>
-                  <Route
-                    path="admin/bookings"
-                    element={<AdminBookings session={session} />}
-                  />
-                  <Route
-                    path="admin/fleet"
-                    element={<AdminFleet session={session} />}
-                  />
-                  <Route
-                    path="admin/issues"
-                    element={<AdminIssues session={session} />}
-                  />
-                  <Route
-                    path="admin/income"
-                    element={<Income session={session} />}
-                  />
-                  <Route
-                    path="*"
-                    element={<Navigate to="/admin/bookings" replace />}
-                  />
-                </>
-              ) : (
-                <>
-                  <Route path="map" element={<ScooterMap />} />
-                  <Route
-                    path="fleet"
-                    element={
-                      <ScooterList
-                        session={session}
-                        onBookingCreated={handleBookingCreated}
-                      />
-                    }
-                  />
-                  <Route
-                    path="bookings"
-                    element={
-                      <MyBookings
-                        session={session}
-                        refreshKey={bookingRefreshKey}
-                      />
-                    }
-                  />
-                  <Route
-                    path="cards"
-                    element={<SavedCards session={session} />}
-                  />
-                  <Route
-                    path="report-issue"
-                    element={<ReportIssue session={session} />}
-                  />
-                  <Route path="*" element={<Navigate to="/map" replace />} />
-                </>
-              )}
-            </Route>
-          </Routes>
+          <div className="shell app-layout">
+            <Routes>
+              <Route path="/" element={<Navigate to={homePath} replace />} />
+              <Route
+                element={<Layout session={session} onLogout={handleLogout} />}
+              >
+                {isAdmin ? (
+                  <>
+                    <Route
+                      path="admin/bookings"
+                      element={<AdminBookings session={session} />}
+                    />
+                    <Route
+                      path="admin/fleet"
+                      element={<AdminFleet session={session} />}
+                    />
+                    <Route
+                      path="admin/issues"
+                      element={<AdminIssues session={session} />}
+                    />
+                    <Route
+                      path="admin/income"
+                      element={<Income session={session} />}
+                    />
+                    <Route
+                      path="*"
+                      element={<Navigate to="/admin/bookings" replace />}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Route path="map" element={<ScooterMap />} />
+                    <Route
+                      path="fleet"
+                      element={
+                        <ScooterList
+                          session={session}
+                          onBookingCreated={handleBookingCreated}
+                        />
+                      }
+                    />
+                    <Route
+                      path="bookings"
+                      element={
+                        <MyBookings
+                          session={session}
+                          refreshKey={bookingRefreshKey}
+                        />
+                      }
+                    />
+                    <Route
+                      path="cards"
+                      element={<SavedCards session={session} />}
+                    />
+                    <Route
+                      path="report-issue"
+                      element={<ReportIssue session={session} />}
+                    />
+                    <Route path="*" element={<Navigate to="/map" replace />} />
+                  </>
+                )}
+              </Route>
+            </Routes>
+          </div>
         ) : (
           <Routes>
             <Route
@@ -119,7 +120,6 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         )}
-      </div>
     </BrowserRouter>
   );
 }

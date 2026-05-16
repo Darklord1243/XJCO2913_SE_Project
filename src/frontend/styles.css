@@ -1,6 +1,8 @@
 @import url('./styles/tokens.css');
 @import url('./styles/base.css');
+@import url('./styles/components/atoms.css');
 @import url('./styles/components/layout.css');
+@import url('./styles/components/auth.css');
 
 :root {
   color-scheme: light;
