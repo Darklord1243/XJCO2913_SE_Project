@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { CreditCard, Lock } from 'lucide-react';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 
@@ -98,9 +99,9 @@ export default function SavedCards({ session }) {
 
   if (isLoading) {
     return (
-      <section className="saved-cards-view">
-        <article className="panel">
-          <p className="empty-state">Loading saved cards...</p>
+      <section className="bookings-page">
+        <article className="page-card">
+          <p className="page-loading">Loading saved cards...</p>
         </article>
       </section>
     );
@@ -108,12 +109,12 @@ export default function SavedCards({ session }) {
 
   if (error) {
     return (
-      <section className="saved-cards-view">
-        <article className="panel">
-          <p className="message" role="alert">
+      <section className="bookings-page">
+        <article className="page-card">
+          <div className="alert alert--error" role="alert">
             {error}
-          </p>
-          <button type="button" className="secondary" onClick={fetchCards}>
+          </div>
+          <button type="button" className="btn btn--secondary" onClick={fetchCards}>
             Retry
           </button>
         </article>
@@ -122,19 +123,25 @@ export default function SavedCards({ session }) {
   }
 
   return (
-    <section className="saved-cards-view">
-      <article className="panel" data-id="ID2">
-        <div className="panel-header">
-          <h2>Your saved cards</h2>
+    <section className="bookings-page">
+      <article className="page-card" data-id="ID2">
+        <div className="page-header">
+          <h2 className="page-title">Your saved cards</h2>
         </div>
 
         {cards.length === 0 ? (
-          <p className="empty-state">No saved cards yet.</p>
+          <div className="page-empty-state">
+            <CreditCard size={48} className="page-empty-state__icon" />
+            <p className="page-empty-state__title">No saved cards</p>
+            <p className="page-empty-state__sub">
+              Add a card to speed up checkout.
+            </p>
+          </div>
         ) : (
-          <ul className="saved-cards-list" role="list">
+          <ul className="list-stack" role="list">
             {cards.map((card) => (
-              <li key={card.id} className="saved-card-item">
-                <span className="saved-card-info">
+              <li key={card.id} className="list-card list-card--row">
+                <span className="list-card__info">
                   <strong>{card.cardBrand || 'Card'}</strong> ending in{' '}
                   {card.cardLast4}
                   {card.isDefault ? (
@@ -145,7 +152,7 @@ export default function SavedCards({ session }) {
                 </span>
                 <button
                   type="button"
-                  className="secondary"
+                  className="btn btn--secondary"
                   onClick={() => handleDelete(card.id)}
                   disabled={deletingId === card.id}
                 >
@@ -157,27 +164,34 @@ export default function SavedCards({ session }) {
         )}
       </article>
 
-      <article className="panel" data-id="ID2">
-        <div className="panel-header">
-          <h2>Add a new card</h2>
+      <article className="page-card" data-id="ID2">
+        <div className="page-header">
+          <h2 className="page-title">Add a new card</h2>
         </div>
 
         {SHOW_SIMULATOR ? (
-          <div className="booking-summary-card">
-            <p className="summary-label">Payment simulator (dev only)</p>
-            <p className="payment-note">
+          <div className="page-simulator">
+            <p className="page-simulator__label">Payment simulator (dev only)</p>
+            <p className="page-simulator__note">
               Use <strong>4242 4242 4242 4242</strong> for a valid card.
             </p>
-            <p className="payment-note">
+            <p className="page-simulator__note">
               Use <strong>4000 0000 0000 0002</strong> for a declined card.
             </p>
           </div>
         ) : null}
 
-        <form className="form-grid" onSubmit={handleAddCard}>
-          <label htmlFor="saved-card-name">
-            Cardholder name
+        <form className="page-form" onSubmit={handleAddCard}>
+          <p className="page-simulator__label">
+            <Lock size={16} aria-hidden="true" /> Card details
+          </p>
+
+          <div className="field">
+            <label className="field__label" htmlFor="saved-card-name">
+              Cardholder name
+            </label>
             <input
+              className="input"
               id="saved-card-name"
               name="cardholderName"
               type="text"
@@ -188,11 +202,14 @@ export default function SavedCards({ session }) {
               }
               required
             />
-          </label>
+          </div>
 
-          <label htmlFor="saved-card-number">
-            Card number
+          <div className="field">
+            <label className="field__label" htmlFor="saved-card-number">
+              Card number
+            </label>
             <input
+              className="input"
               id="saved-card-number"
               name="cardNumber"
               type="text"
@@ -204,12 +221,15 @@ export default function SavedCards({ session }) {
               onChange={(e) => handleFormChange('cardNumber', e.target.value)}
               required
             />
-          </label>
+          </div>
 
-          <div className="payment-grid">
-            <label htmlFor="saved-card-expiry">
-              Expiry date
+          <div className="page-form__row">
+            <div className="field">
+              <label className="field__label" htmlFor="saved-card-expiry">
+                Expiry date
+              </label>
               <input
+                className="input"
                 id="saved-card-expiry"
                 name="expiryDate"
                 type="text"
@@ -221,11 +241,14 @@ export default function SavedCards({ session }) {
                 onChange={(e) => handleFormChange('expiryDate', e.target.value)}
                 required
               />
-            </label>
+            </div>
 
-            <label htmlFor="saved-card-cvv">
-              CVV
+            <div className="field">
+              <label className="field__label" htmlFor="saved-card-cvv">
+                CVV
+              </label>
               <input
+                className="input"
                 id="saved-card-cvv"
                 name="cvv"
                 type="text"
@@ -237,18 +260,23 @@ export default function SavedCards({ session }) {
                 onChange={(e) => handleFormChange('cvv', e.target.value)}
                 required
               />
-            </label>
+            </div>
           </div>
 
-          <p
-            className="message"
-            data-state={message.state || undefined}
-            aria-live="polite"
-          >
-            {message.text}
-          </p>
+          {message.text ? (
+            <div
+              className={`alert ${message.state === 'error' ? 'alert--error' : 'alert--success'}`}
+              aria-live="polite"
+            >
+              {message.text}
+            </div>
+          ) : null}
 
-          <button type="submit" disabled={isSaving}>
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={isSaving}
+          >
             {isSaving ? 'Saving...' : 'Save card'}
           </button>
         </form>

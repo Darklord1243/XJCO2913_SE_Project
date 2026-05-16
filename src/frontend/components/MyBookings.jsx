@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Inbox } from 'lucide-react';
 import { useBookings } from '../hooks/useBookings';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
@@ -143,12 +144,15 @@ export default function MyBookings({ session, refreshKey }) {
 
   if (!token) {
     return (
-      <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide" data-id="ID8">
-          <div className="panel-header">
-            <h2>My bookings</h2>
+      <section className="bookings-page">
+        <article
+          className="page-card page-card--accent page-card--wide"
+          data-id="ID8"
+        >
+          <div className="page-header">
+            <h2 className="page-title">My bookings</h2>
           </div>
-          <p className="empty-state">
+          <p className="page-empty">
             Sign in to view booking history and active hire records.
           </p>
         </article>
@@ -158,12 +162,15 @@ export default function MyBookings({ session, refreshKey }) {
 
   if (isLoading) {
     return (
-      <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide" data-id="ID8">
-          <div className="panel-header">
-            <h2>My bookings</h2>
+      <section className="bookings-page">
+        <article
+          className="page-card page-card--accent page-card--wide"
+          data-id="ID8"
+        >
+          <div className="page-header">
+            <h2 className="page-title">My bookings</h2>
           </div>
-          <p className="empty-state">Loading booking history...</p>
+          <p className="page-loading">Loading booking history...</p>
         </article>
       </section>
     );
@@ -171,15 +178,22 @@ export default function MyBookings({ session, refreshKey }) {
 
   if (error) {
     return (
-      <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide" data-id="ID8">
-          <div className="panel-header">
-            <h2>My bookings</h2>
+      <section className="bookings-page">
+        <article
+          className="page-card page-card--accent page-card--wide"
+          data-id="ID8"
+        >
+          <div className="page-header">
+            <h2 className="page-title">My bookings</h2>
           </div>
-          <p className="message" data-state="error" role="alert">
+          <div className="alert alert--error" role="alert">
             Could not load bookings: {error}
-          </p>
-          <button type="button" className="secondary" onClick={refetchBookings}>
+          </div>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={refetchBookings}
+          >
             Retry
           </button>
         </article>
@@ -188,32 +202,35 @@ export default function MyBookings({ session, refreshKey }) {
   }
 
   return (
-    <section className="my-bookings-view">
+    <section className="bookings-page">
       <article
-        className="panel panel-accent panel-wide"
+        className="page-card page-card--accent page-card--wide"
         data-id="ID8-ID11-ID12"
       >
-        <div className="panel-header">
-          <h2>My bookings</h2>
+        <div className="page-header">
+          <h2 className="page-title">My bookings</h2>
         </div>
 
         {actionMessage.text ? (
-          <p
-            className="message"
-            data-state={actionMessage.state || undefined}
+          <div
+            className={`alert ${actionMessage.state === 'error' ? 'alert--error' : 'alert--success'}`}
             role="status"
             aria-live="polite"
           >
             {actionMessage.text}
-          </p>
+          </div>
         ) : null}
 
         {bookings.length === 0 ? (
-          <p className="empty-state">
-            No bookings yet. Your successful bookings will appear here.
-          </p>
+          <div className="page-empty-state">
+            <Inbox size={48} className="page-empty-state__icon" />
+            <p className="page-empty-state__title">No bookings yet</p>
+            <p className="page-empty-state__sub">
+              Your successful bookings will appear here.
+            </p>
+          </div>
         ) : (
-          <div className="booking-history" role="list" aria-live="polite">
+          <div className="list-stack" role="list" aria-live="polite">
             {bookings.map((booking) => {
               const isActive = booking.status === 'active';
               const canExtend =
@@ -224,13 +241,13 @@ export default function MyBookings({ session, refreshKey }) {
               return (
                 <article
                   key={booking.bookingId}
-                  className="booking-history__item"
+                  className="list-card"
                   role="listitem"
                 >
-                  <div className="booking-history__header">
-                    <div>
-                      <p className="summary-label">Booking ID</p>
-                      <p className="summary-value">{booking.bookingId}</p>
+                  <div className="list-card__header">
+                    <div className="list-card__heading">
+                      <p className="list-card__label">Booking ID</p>
+                      <p className="list-card__value">{booking.bookingId}</p>
                     </div>
                     <span
                       className={`status-pill status-pill--${booking.status}`}
@@ -239,37 +256,37 @@ export default function MyBookings({ session, refreshKey }) {
                     </span>
                   </div>
 
-                  <div className="booking-history__grid">
-                    <div className="summary-card">
-                      <p className="summary-label">Scooter</p>
-                      <p className="summary-value">{booking.scooterId}</p>
+                  <div className="list-card__meta">
+                    <div className="list-card__stat">
+                      <p className="list-card__label">Scooter</p>
+                      <p className="list-card__value">{booking.scooterId}</p>
                     </div>
-                    <div className="summary-card">
-                      <p className="summary-label">Hire plan</p>
-                      <p className="summary-value">
+                    <div className="list-card__stat">
+                      <p className="list-card__label">Hire plan</p>
+                      <p className="list-card__value">
                         {DURATION_LABELS[booking.durationCode] ||
                           toStatusLabel(booking.durationCode)}
                       </p>
                     </div>
-                    <div className="summary-card">
-                      <p className="summary-label">Total price</p>
-                      <p className="summary-value">
+                    <div className="list-card__stat">
+                      <p className="list-card__label">Total price</p>
+                      <p className="list-card__value">
                         {formatCurrency(booking.totalPrice)}
                       </p>
                     </div>
-                    <div className="summary-card">
-                      <p className="summary-label">Created at</p>
-                      <p className="summary-value">
+                    <div className="list-card__stat">
+                      <p className="list-card__label">Created at</p>
+                      <p className="list-card__value">
                         {formatDateTime(booking.createdAt)}
                       </p>
                     </div>
                   </div>
 
                   {isActive ? (
-                    <div className="booking-actions">
+                    <div className="list-card__actions">
                       <button
                         type="button"
-                        className="secondary booking-actions__cancel"
+                        className="btn btn--danger"
                         onClick={() => handleCancel(booking.bookingId)}
                         disabled={isThisCancelling || !!cancellingId}
                       >
@@ -279,6 +296,7 @@ export default function MyBookings({ session, refreshKey }) {
                       {canExtend && !isThisExtending ? (
                         <button
                           type="button"
+                          className="btn btn--secondary"
                           onClick={() =>
                             openExtend(booking.bookingId, booking.durationCode)
                           }
@@ -288,11 +306,11 @@ export default function MyBookings({ session, refreshKey }) {
                       ) : null}
 
                       {isThisExtending ? (
-                        <div className="extend-inline">
-                          <label className="extend-inline__label">
+                        <div className="list-card__extend">
+                          <label className="list-card__extend-label">
                             Extend to:
                             <select
-                              className="extend-inline__select"
+                              className="input"
                               value={extendDuration}
                               onChange={(e) =>
                                 setExtendDuration(e.target.value)
@@ -309,6 +327,7 @@ export default function MyBookings({ session, refreshKey }) {
                           </label>
                           <button
                             type="button"
+                            className="btn btn--primary"
                             onClick={() =>
                               handleExtendSubmit(booking.bookingId)
                             }
@@ -317,7 +336,7 @@ export default function MyBookings({ session, refreshKey }) {
                           </button>
                           <button
                             type="button"
-                            className="secondary"
+                            className="btn btn--ghost"
                             onClick={closeExtend}
                           >
                             Cancel
