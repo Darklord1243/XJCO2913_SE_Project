@@ -1,5 +1,36 @@
+const crypto = require('node:crypto');
+
 const SUPPORTED_SUCCESS_CARD = '4242424242424242';
 const SUPPORTED_DECLINE_CARD = '4000000000000002';
+
+// ---------------------------------------------------------------------------
+// ID2/ID3: Card storage helpers (coursework simulation only)
+// ---------------------------------------------------------------------------
+// These produce a deterministic hash of the normalised PAN so the payment
+// simulator (which only accepts two fixed test card numbers) can still
+// resolve card inputs from a saved card reference. In a real system the
+// hash would be salted, or — better — the PAN would never touch the
+// application server at all; a payment processor would return an opaque
+// token and we would store only that token + last4.
+
+function hashCardPan(cardNumber) {
+  const normalised = String(cardNumber).replace(/\s+/g, '');
+  return crypto.createHash('sha256').update(normalised).digest('hex');
+}
+
+function extractLast4(cardNumber) {
+  const normalised = String(cardNumber).replace(/\s+/g, '');
+  return normalised.slice(-4);
+}
+
+function detectCardBrand(cardNumber) {
+  const normalised = String(cardNumber).replace(/\s+/g, '');
+  if (/^4\d{15}$/.test(normalised)) return 'Visa';
+  if (/^5[1-5]\d{14}$/.test(normalised)) return 'Mastercard';
+  if (/^3[47]\d{13}$/.test(normalised)) return 'Amex';
+  if (/^6011\d{12}$/.test(normalised)) return 'Discover';
+  return null;
+}
 
 const durationCodes = ['oneHour', 'fourHours', 'oneDay', 'oneWeek'];
 const pricingColumnMap = {
@@ -277,8 +308,11 @@ async function calculateWeeklyUserHours({ dbAll, userId } = {}) {
 module.exports = {
   calculateWeeklyUserHours,
   createBookingInTransaction,
+  detectCardBrand,
   durationCodes,
   durationHoursMap,
+  extractLast4,
+  hashCardPan,
   normalizeId,
   normalizeText,
   pricingColumnMap,

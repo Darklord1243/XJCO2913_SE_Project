@@ -49,6 +49,19 @@ describe('email service', () => {
     });
   });
 
+  test('enables Mailpit-style relay when SMTP_HOST is set without credentials', () => {
+    const config = buildSmtpConfig({
+      SMTP_HOST: 'localhost',
+      SMTP_PORT: '1025',
+    });
+
+    assert.equal(config.enabled, true);
+    assert.equal(config.transport.host, 'localhost');
+    assert.equal(config.transport.port, 1025);
+    assert.equal(config.transport.secure, false);
+    assert.equal(config.transport.auth, undefined);
+  });
+
   test('sends through injected transport when SMTP is configured', async () => {
     let capturedTransport = null;
     let capturedMail = null;
@@ -82,6 +95,30 @@ describe('email service', () => {
       'E-Scooter Rental Platform <2833085151@qq.com>'
     );
     assert.equal(capturedMail.to, 'rider@test.local');
+  });
+
+  test('returns sent:false when transport throws (does not rethrow)', async () => {
+    const result = await sendMailBestEffort(
+      {
+        to: 'rider@test.local',
+        subject: 'Test',
+        text: 'Test body',
+      },
+      {
+        env: {
+          SMTP_USER: 'user@test.local',
+          SMTP_PASS: 'secret',
+        },
+        createTransport: () => ({
+          sendMail: async () => {
+            throw new Error('ECONNREFUSED');
+          },
+        }),
+      }
+    );
+
+    assert.equal(result.sent, false);
+    assert.ok(result.error);
   });
 
   test('registration email includes account details', () => {

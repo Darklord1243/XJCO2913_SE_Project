@@ -84,8 +84,23 @@ router.post('/login', async (req, res) => {
     const { email, password } = validation.value;
     const user = await findUserByEmail(email);
 
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      });
+    }
+
+    // Walk-in accounts cannot log in (defense in depth — placeholder
+    // password hashes are practically un-matchable, but reject explicitly).
+    if (user.user_type === 'walkin') {
+      return res.status(401).json({
+        success: false,
+        message: 'Walk-in accounts cannot log in.',
+      });
+    }
+
     if (
-      !user ||
       !verifyPassword(password, user.password_salt, user.password_hash)
     ) {
       return res.status(401).json({

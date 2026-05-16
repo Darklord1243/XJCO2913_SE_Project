@@ -16,9 +16,9 @@ function cleanText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function parseSmtpPort(value) {
+function parseSmtpPort(value, fallback) {
   const parsed = Number.parseInt(cleanText(value), 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_SMTP_PORT;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function parseSmtpSecure(value) {
@@ -34,13 +34,28 @@ function parseSmtpSecure(value) {
 function buildSmtpConfig(env = process.env) {
   const user = cleanText(env.SMTP_USER);
   const pass = cleanText(env.SMTP_PASS);
+  const host = cleanText(env.SMTP_HOST);
+
+  // Local dev catch-all (e.g. Mailpit): SMTP_HOST set without credentials
+  if (host && (!user || !pass)) {
+    const port = parseSmtpPort(env.SMTP_PORT, 1025);
+    return {
+      enabled: true,
+      from: cleanText(env.SMTP_FROM) || 'noreply@escooter.local',
+      transport: {
+        host,
+        port,
+        secure: false,
+      },
+    };
+  }
 
   if (!user || !pass) {
     return { enabled: false };
   }
 
-  const host = cleanText(env.SMTP_HOST) || DEFAULT_SMTP_HOST;
-  const port = parseSmtpPort(env.SMTP_PORT);
+  const resolvedHost = host || DEFAULT_SMTP_HOST;
+  const port = parseSmtpPort(env.SMTP_PORT, DEFAULT_SMTP_PORT);
   const secure = parseSmtpSecure(env.SMTP_SECURE);
   const from = cleanText(env.SMTP_FROM) || `${PLATFORM_NAME} <${user}>`;
 
@@ -48,7 +63,7 @@ function buildSmtpConfig(env = process.env) {
     enabled: true,
     from,
     transport: {
-      host,
+      host: resolvedHost,
       port,
       secure,
       auth: {
@@ -57,6 +72,10 @@ function buildSmtpConfig(env = process.env) {
       },
     },
   };
+}
+
+function emailEnabled() {
+  return buildSmtpConfig().enabled;
 }
 
 function getUserName(user) {
@@ -241,6 +260,7 @@ module.exports = {
   buildBookingConfirmationEmail,
   buildRegistrationEmail,
   buildSmtpConfig,
+  emailEnabled,
   sendBookingCompletedEmail,
   sendBookingConfirmationEmail,
   sendMailBestEffort,

@@ -61,6 +61,7 @@ test('roles: normalizeUserType falls back to standard for unknown values', () =>
   assert.equal(normalizeUserType('admin'), 'admin');
   assert.equal(normalizeUserType('staff'), 'staff');
   assert.equal(normalizeUserType('student'), 'student');
+  assert.equal(normalizeUserType('walkin'), 'walkin');
   assert.equal(normalizeUserType('Admin'), 'standard');
   assert.equal(normalizeUserType('superuser'), 'standard');
   assert.equal(normalizeUserType(undefined), 'standard');

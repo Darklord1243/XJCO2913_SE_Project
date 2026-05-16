@@ -31,6 +31,34 @@ npm run format
 - The backend API serves the frontend on the same port in production; in dev, Vite runs its own dev server (usually port 5173).
 - `npm test` uses `--test-concurrency=1` because tests share a process-global SQLite handle.
 
+### Email notifications (ID7)
+
+Transactional email uses **nodemailer** over SMTP. `server.js` loads `.env` via **dotenv** at startup.
+`email-service.js` exports three fire-and-forget senders (all use `void` at call sites — email failure never
+affects the HTTP response; transport errors are logged in `sendMailBestEffort()`, not thrown):
+
+| Function | Trigger |
+|---|---|
+| `sendRegistrationEmail(user)` | POST `/api/auth/register` (`routes/auth.js`) |
+| `sendBookingConfirmationEmail({ user, booking })` | POST `/api/bookings`; POST `/api/admin/bookings` when guest email provided (`routes/bookings.js`) |
+| `sendBookingCompletedEmail({ user, booking })` | PATCH `/api/bookings/:id/cancel` (`routes/bookings.js`) |
+
+No email on extend (ID11) — by design.
+
+**Configuration** (see `.env.example`):
+
+- **Disabled** — leave `SMTP_USER`/`SMTP_PASS` empty and `SMTP_HOST` empty; startup logs a warning; all endpoints still work.
+- **Mailpit (local dev)** — `SMTP_HOST=localhost`, `SMTP_PORT=1025`, no `SMTP_USER`/`SMTP_PASS`; view mail at http://localhost:8025
+- **QQ Mail (production-style)** — set `SMTP_USER` + `SMTP_PASS` (authorization code, not QQ password); defaults to `smtp.qq.com:465` with `secure: true` when host omitted
+
+```bash
+# Mailpit: docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+SMTP_HOST=localhost SMTP_PORT=1025 node src/backend/server.js
+
+# QQ Mail (credentials in .env):
+node src/backend/server.js
+```
+
 ## Architecture
 
 ### Backend (Express 5 + SQLite3)
@@ -44,6 +72,7 @@ src/backend/
   auth-middleware.js  authenticateRequest, requireAdmin, requireStaff
   roles.js           Canonical role model (standard/student/senior/staff/admin)
   booking-service.js Payment simulator, booking transaction, weekly hours calculation
+  email-service.js  SMTP transactional email via nodemailer (registration, booking confirmation, booking completed; fire-and-forget)
   scooter-service.js Scooter payload validation (shared by POST and PUT)
   routes/
     auth.js          POST /api/auth/register, POST /api/auth/login
@@ -105,6 +134,7 @@ database/
 tests/
   _list-test-files.cjs       Discovers test files for npm test
   auth-rbac.test.js           Unit tests for roles, auth-service
+  email-service.test.js       Unit tests for email-service (mocked SMTP)
   scooter-service.test.js     Unit tests for validateScooterPayload
   integration/
     _setup.js                 createTestApp, seedUser, mintToken, authHeader

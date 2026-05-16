@@ -74,6 +74,9 @@ export default function ScooterList({ session, onBookingCreated }) {
     state: '',
   });
   const [bookingResult, setBookingResult] = useState(null);
+  const [savedCards, setSavedCards] = useState([]);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState(null);
+  const [paymentMode, setPaymentMode] = useState('manual'); // 'manual' | 'saved'
 
   const selectedScooter = useMemo(() => {
     if (!Array.isArray(scooters) || scooters.length === 0) {
@@ -135,7 +138,19 @@ export default function ScooterList({ session, onBookingCreated }) {
     }
   }, [isSignedIn]);
 
-  function openBookingModal(scooterId) {
+  async function fetchSavedCards() {
+    if (!sessionToken) return;
+    try {
+      const result = await requestJson('http://127.0.0.1:3000/api/cards', {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      setSavedCards(result.data || []);
+    } catch (_) {
+      setSavedCards([]);
+    }
+  }
+
+  async function openBookingModal(scooterId) {
     if (!isSignedIn) {
       return;
     }
@@ -145,7 +160,10 @@ export default function ScooterList({ session, onBookingCreated }) {
     setSelectedDurationCode('oneHour');
     setPaymentForm(defaultPaymentForm);
     setBookingMessage({ text: '', state: '' });
+    setSelectedSavedCardId(null);
+    setPaymentMode('manual');
     setIsBookingModalOpen(true);
+    await fetchSavedCards();
   }
 
   function closeBookingModal() {
@@ -175,17 +193,24 @@ export default function ScooterList({ session, onBookingCreated }) {
     setBookingMessage({ text: '', state: '' });
 
     try {
+      const body = {
+        scooterId: bookingScooter.scooterId,
+        durationCode: selectedDurationCode,
+      };
+
+      if (paymentMode === 'saved' && selectedSavedCardId) {
+        body.savedCardId = selectedSavedCardId;
+      } else {
+        body.payment = paymentForm;
+      }
+
       const result = await requestJson(BOOKING_ENDPOINT, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${sessionToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          scooterId: bookingScooter.scooterId,
-          durationCode: selectedDurationCode,
-          payment: paymentForm,
-        }),
+        body: JSON.stringify(body),
       });
 
       await refetchScooters();
@@ -558,102 +583,181 @@ export default function ScooterList({ session, onBookingCreated }) {
                 </p>
               </div>
 
-              {SHOW_PAYMENT_SIMULATOR ? (
-                <div className="booking-summary-card">
-                  <p className="summary-label">Payment simulator (dev only)</p>
-                  <p className="payment-note">
-                    Use <strong>4242 4242 4242 4242</strong> to simulate a
-                    successful payment.
-                  </p>
-                  <p className="payment-note">
-                    Use <strong>4000 0000 0000 0002</strong> to simulate a
-                    declined payment.
-                  </p>
-                </div>
+              {savedCards.length > 0 ? (
+                <fieldset className="plan-selector">
+                  <legend className="summary-label">Payment method</legend>
+                  <label
+                    className={`plan-option${paymentMode === 'saved' ? ' is-active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value="saved"
+                      checked={paymentMode === 'saved'}
+                      onChange={() => setPaymentMode('saved')}
+                    />
+                    <span className="plan-option__body">
+                      <span className="plan-option__top">
+                        <strong>Use a saved card</strong>
+                      </span>
+                    </span>
+                  </label>
+                  <label
+                    className={`plan-option${paymentMode === 'manual' ? ' is-active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value="manual"
+                      checked={paymentMode === 'manual'}
+                      onChange={() => setPaymentMode('manual')}
+                    />
+                    <span className="plan-option__body">
+                      <span className="plan-option__top">
+                        <strong>Enter new card details</strong>
+                      </span>
+                    </span>
+                  </label>
+
+                  {paymentMode === 'saved' ? (
+                    <div
+                      className="saved-card-select"
+                      style={{ marginTop: '0.75rem' }}
+                    >
+                      {savedCards.map((card) => (
+                        <label
+                          key={card.id}
+                          className={`plan-option${selectedSavedCardId === card.id ? ' is-active' : ''}`}
+                        >
+                          <input
+                            type="radio"
+                            name="savedCardId"
+                            value={card.id}
+                            checked={selectedSavedCardId === card.id}
+                            onChange={() => setSelectedSavedCardId(card.id)}
+                          />
+                          <span className="plan-option__body">
+                            <span className="plan-option__top">
+                              <strong>
+                                {card.cardBrand || 'Card'} ending in{' '}
+                                {card.cardLast4}
+                              </strong>
+                              {card.isDefault ? (
+                                <span className="status-pill status-pill--available">
+                                  Default
+                                </span>
+                              ) : null}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                </fieldset>
               ) : null}
 
-              <label htmlFor="payment-cardholder-name">
-                Cardholder name
-                <input
-                  id="payment-cardholder-name"
-                  name="cardholderName"
-                  type="text"
-                  autoComplete="cc-name"
-                  value={paymentForm.cardholderName}
-                  onChange={(event) =>
-                    setPaymentForm((current) => ({
-                      ...current,
-                      cardholderName: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
+              {paymentMode === 'manual' ? (
+                <>
+                  {SHOW_PAYMENT_SIMULATOR ? (
+                    <div className="booking-summary-card">
+                      <p className="summary-label">
+                        Payment simulator (dev only)
+                      </p>
+                      <p className="payment-note">
+                        Use <strong>4242 4242 4242 4242</strong> to simulate a
+                        successful payment.
+                      </p>
+                      <p className="payment-note">
+                        Use <strong>4000 0000 0000 0002</strong> to simulate a
+                        declined payment.
+                      </p>
+                    </div>
+                  ) : null}
 
-              <label htmlFor="payment-card-number">
-                Card number
-                <input
-                  id="payment-card-number"
-                  name="cardNumber"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  maxLength={19}
-                  placeholder="4242 4242 4242 4242"
-                  value={paymentForm.cardNumber}
-                  onChange={(event) =>
-                    setPaymentForm((current) => ({
-                      ...current,
-                      cardNumber: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
+                  <label htmlFor="payment-cardholder-name">
+                    Cardholder name
+                    <input
+                      id="payment-cardholder-name"
+                      name="cardholderName"
+                      type="text"
+                      autoComplete="cc-name"
+                      value={paymentForm.cardholderName}
+                      onChange={(event) =>
+                        setPaymentForm((current) => ({
+                          ...current,
+                          cardholderName: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
 
-              <div className="payment-grid">
-                <label htmlFor="payment-expiry-date">
-                  Expiry date
-                  <input
-                    id="payment-expiry-date"
-                    name="expiryDate"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-exp"
-                    maxLength={5}
-                    placeholder="MM/YY"
-                    value={paymentForm.expiryDate}
-                    onChange={(event) =>
-                      setPaymentForm((current) => ({
-                        ...current,
-                        expiryDate: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </label>
+                  <label htmlFor="payment-card-number">
+                    Card number
+                    <input
+                      id="payment-card-number"
+                      name="cardNumber"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="cc-number"
+                      maxLength={19}
+                      placeholder="4242 4242 4242 4242"
+                      value={paymentForm.cardNumber}
+                      onChange={(event) =>
+                        setPaymentForm((current) => ({
+                          ...current,
+                          cardNumber: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
 
-                <label htmlFor="payment-cvv">
-                  CVV
-                  <input
-                    id="payment-cvv"
-                    name="cvv"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="cc-csc"
-                    maxLength={4}
-                    placeholder="123"
-                    value={paymentForm.cvv}
-                    onChange={(event) =>
-                      setPaymentForm((current) => ({
-                        ...current,
-                        cvv: event.target.value,
-                      }))
-                    }
-                    required
-                  />
-                </label>
-              </div>
+                  <div className="payment-grid">
+                    <label htmlFor="payment-expiry-date">
+                      Expiry date
+                      <input
+                        id="payment-expiry-date"
+                        name="expiryDate"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="cc-exp"
+                        maxLength={5}
+                        placeholder="MM/YY"
+                        value={paymentForm.expiryDate}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            expiryDate: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+
+                    <label htmlFor="payment-cvv">
+                      CVV
+                      <input
+                        id="payment-cvv"
+                        name="cvv"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        maxLength={4}
+                        placeholder="123"
+                        value={paymentForm.cvv}
+                        onChange={(event) =>
+                          setPaymentForm((current) => ({
+                            ...current,
+                            cvv: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                  </div>
+                </>
+              ) : null}
 
               <p
                 className="message"
@@ -672,7 +776,13 @@ export default function ScooterList({ session, onBookingCreated }) {
                 >
                   Cancel
                 </button>
-                <button type="submit" disabled={isBooking}>
+                <button
+                  type="submit"
+                  disabled={
+                    isBooking ||
+                    (paymentMode === 'saved' && !selectedSavedCardId)
+                  }
+                >
                   {isBooking ? 'Confirming...' : 'Confirm booking'}
                 </button>
               </div>

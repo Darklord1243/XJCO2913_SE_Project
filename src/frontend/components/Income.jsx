@@ -55,6 +55,15 @@ function formatAxisCurrency(value) {
   return `£${Math.round(value).toLocaleString('en-GB')}`;
 }
 
+function formatDayLabel(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T00:00:00`);
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+  }).format(d);
+}
+
 function IncomeChartTooltip({ active, payload }) {
   if (!active || !Array.isArray(payload) || payload.length === 0) {
     return null;
@@ -79,10 +88,40 @@ function IncomeChartTooltip({ active, payload }) {
   );
 }
 
+function DailyChartTooltip({ active, payload }) {
+  if (!active || !Array.isArray(payload) || payload.length === 0) {
+    return null;
+  }
+
+  const point = payload[0]?.payload;
+  if (!point) {
+    return null;
+  }
+
+  const income = Number.isFinite(point.income) ? point.income : 0;
+  const bk = point.breakdown || {};
+
+  return (
+    <div className="income-chart__tooltip" role="tooltip">
+      <p className="income-chart__tooltip-label">{point.plan}</p>
+      <p className="income-chart__tooltip-value">{formatCurrency(income)}</p>
+      <p className="income-chart__tooltip-meta">
+        {PLAN_CONFIG.map((p) => (
+          <span key={p.key} style={{ display: 'block' }}>
+            {p.label}: {formatCurrency(bk[p.key] ?? 0)}
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
 export default function Income({ session }) {
   const token = getSessionToken(session);
   const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek);
   const [data, setData] = useState(null);
+  const [dailyData, setDailyData] = useState(null);
+  const [viewMode, setViewMode] = useState('plan'); // 'plan' | 'day'
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -90,6 +129,7 @@ export default function Income({ session }) {
     async (signal) => {
       if (!token) {
         setData(null);
+        setDailyData(null);
         return;
       }
 
@@ -97,15 +137,19 @@ export default function Income({ session }) {
       setError(null);
 
       try {
-        const payload = await requestJson(
-          `${API_BASE}/bookings/income/weekly?weekStart=${weekStart}`,
-          {
-            signal,
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const [weeklyRes, dailyRes] = await Promise.all([
+          requestJson(
+            `${API_BASE}/bookings/income/weekly?weekStart=${weekStart}`,
+            { signal, headers: { Authorization: `Bearer ${token}` } }
+          ),
+          requestJson(
+            `${API_BASE}/bookings/income/daily?weekStart=${weekStart}`,
+            { signal, headers: { Authorization: `Bearer ${token}` } }
+          ),
+        ]);
 
-        setData(payload.data);
+        setData(weeklyRes.data);
+        setDailyData(dailyRes.data);
       } catch (err) {
         if (err?.name === 'AbortError') {
           return;
@@ -113,6 +157,7 @@ export default function Income({ session }) {
 
         setError(err?.message || 'Failed to fetch income data.');
         setData(null);
+        setDailyData(null);
       } finally {
         setIsLoading(false);
       }
@@ -127,16 +172,28 @@ export default function Income({ session }) {
   }, [fetchIncome]);
 
   const chartData = useMemo(() => {
-    if (!data) {
-      return [];
+    if (viewMode === 'plan' && data) {
+      return PLAN_CONFIG.map((plan) => ({
+        plan: plan.label,
+        income: Number(data.income?.[plan.key] ?? 0),
+        bookings: Number(data.counts?.[plan.key] ?? 0),
+      }));
     }
 
-    return PLAN_CONFIG.map((plan) => ({
-      plan: plan.label,
-      income: Number(data.income?.[plan.key] ?? 0),
-      bookings: Number(data.counts?.[plan.key] ?? 0),
-    }));
-  }, [data]);
+    if (viewMode === 'day' && dailyData) {
+      return (dailyData.days || []).map((day) => ({
+        plan: formatDayLabel(day.date),
+        income: Number(day.totalIncome ?? 0),
+        bookings: Number(day.bookingCount ?? 0),
+        breakdown: day.breakdown,
+      }));
+    }
+
+    return [];
+  }, [data, dailyData, viewMode]);
+
+  const chartTitle =
+    viewMode === 'day' ? 'Income by day' : 'Income by hire plan';
 
   if (!token) {
     return (
@@ -157,9 +214,30 @@ export default function Income({ session }) {
   return (
     <section className="income-view">
       <article className="panel panel-accent panel-wide" data-id="ID19">
-        <div className="panel-header">
-          <p className="panel-kicker">Admin</p>
-          <h2>Weekly income by rental option</h2>
+        <div className="panel-header panel-header--row">
+          <div>
+            <p className="panel-kicker">Admin</p>
+            <h2>Weekly income by rental option</h2>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={viewMode === 'plan' ? '' : 'secondary'}
+              onClick={() => setViewMode('plan')}
+              aria-pressed={viewMode === 'plan'}
+            >
+              By Plan
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'day' ? '' : 'secondary'}
+              onClick={() => setViewMode('day')}
+              aria-pressed={viewMode === 'day'}
+            >
+              By Day
+            </button>
+          </div>
         </div>
 
         <div className="week-navigator">
@@ -192,20 +270,22 @@ export default function Income({ session }) {
           </p>
         ) : data ? (
           <>
-            <div className="income-grid" role="list">
-              {PLAN_CONFIG.map((plan) => (
-                <div key={plan.key} className="income-card" role="listitem">
-                  <p className="income-card__label">{plan.label}</p>
-                  <p className="income-card__value">
-                    {formatCurrency(data.income?.[plan.key] ?? 0)}
-                  </p>
-                  <p className="income-card__meta">
-                    {data.counts?.[plan.key] ?? 0} booking
-                    {(data.counts?.[plan.key] ?? 0) === 1 ? '' : 's'}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {viewMode === 'plan' ? (
+              <div className="income-grid" role="list">
+                {PLAN_CONFIG.map((plan) => (
+                  <div key={plan.key} className="income-card" role="listitem">
+                    <p className="income-card__label">{plan.label}</p>
+                    <p className="income-card__value">
+                      {formatCurrency(data.income?.[plan.key] ?? 0)}
+                    </p>
+                    <p className="income-card__meta">
+                      {data.counts?.[plan.key] ?? 0} booking
+                      {(data.counts?.[plan.key] ?? 0) === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             {chartData.length > 0 ? (
               <figure
@@ -214,9 +294,7 @@ export default function Income({ session }) {
                 data-id="ID21"
               >
                 <figcaption className="income-chart__caption">
-                  <span className="income-chart__title">
-                    Income by hire plan
-                  </span>
+                  <span className="income-chart__title">{chartTitle}</span>
                 </figcaption>
                 <div className="income-chart__canvas">
                   <ResponsiveContainer width="100%" height={320}>
@@ -239,7 +317,13 @@ export default function Income({ session }) {
                       />
                       <Tooltip
                         cursor={{ fill: 'rgba(15, 118, 110, 0.08)' }}
-                        content={<IncomeChartTooltip />}
+                        content={
+                          viewMode === 'day' ? (
+                            <DailyChartTooltip />
+                          ) : (
+                            <IncomeChartTooltip />
+                          )
+                        }
                       />
                       <Bar
                         dataKey="income"
@@ -257,7 +341,11 @@ export default function Income({ session }) {
             <div className="income-total">
               <p className="summary-label">Grand total</p>
               <p className="summary-value income-total__value">
-                {formatCurrency(data.grandTotal ?? 0)}
+                {formatCurrency(
+                  viewMode === 'day'
+                    ? (dailyData?.grandTotal ?? 0)
+                    : (data.grandTotal ?? 0)
+                )}
               </p>
             </div>
           </>
