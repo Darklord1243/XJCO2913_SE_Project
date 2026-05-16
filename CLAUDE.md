@@ -33,18 +33,31 @@ npm run format
 
 ### Email notifications (ID7)
 
-Booking confirmation emails are sent via SMTP (Node built-in `net`, no external deps).
-Configure via environment variables; if `SMTP_HOST` is unset, email is silently disabled
-and a warning is logged at startup. See `.env.example` for all variables.
+Transactional email uses **nodemailer** over SMTP. `server.js` loads `.env` via **dotenv** at startup.
+`email-service.js` exports three fire-and-forget senders (all use `void` at call sites — email failure never
+affects the HTTP response; transport errors are logged in `sendMailBestEffort()`, not thrown):
+
+| Function | Trigger |
+|---|---|
+| `sendRegistrationEmail(user)` | POST `/api/auth/register` (`routes/auth.js`) |
+| `sendBookingConfirmationEmail({ user, booking })` | POST `/api/bookings`; POST `/api/admin/bookings` when guest email provided (`routes/bookings.js`) |
+| `sendBookingCompletedEmail({ user, booking })` | PATCH `/api/bookings/:id/cancel` (`routes/bookings.js`) |
+
+No email on extend (ID11) — by design.
+
+**Configuration** (see `.env.example`):
+
+- **Disabled** — leave `SMTP_USER`/`SMTP_PASS` empty and `SMTP_HOST` empty; startup logs a warning; all endpoints still work.
+- **Mailpit (local dev)** — `SMTP_HOST=localhost`, `SMTP_PORT=1025`, no `SMTP_USER`/`SMTP_PASS`; view mail at http://localhost:8025
+- **QQ Mail (production-style)** — set `SMTP_USER` + `SMTP_PASS` (authorization code, not QQ password); defaults to `smtp.qq.com:465` with `secure: true` when host omitted
 
 ```bash
-# Local dev with Mailpit (catch-all, no real send):
-#   docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+# Mailpit: docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
 SMTP_HOST=localhost SMTP_PORT=1025 node src/backend/server.js
-```
 
-The `sendBookingConfirmation` call is fire-and-forget — email failure never affects the
-HTTP response (errors are logged, not thrown).
+# QQ Mail (credentials in .env):
+node src/backend/server.js
+```
 
 ## Architecture
 
@@ -59,7 +72,7 @@ src/backend/
   auth-middleware.js  authenticateRequest, requireAdmin, requireStaff
   roles.js           Canonical role model (standard/student/senior/staff/admin)
   booking-service.js Payment simulator, booking transaction, weekly hours calculation
-  email-service.js  SMTP booking confirmation emails (fire-and-forget, configurable via env)
+  email-service.js  SMTP transactional email via nodemailer (registration, booking confirmation, booking completed; fire-and-forget)
   scooter-service.js Scooter payload validation (shared by POST and PUT)
   routes/
     auth.js          POST /api/auth/register, POST /api/auth/login
