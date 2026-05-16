@@ -495,13 +495,36 @@ they are now exposed as non-rendered `data-id` attributes instead, so
 automated test selectors can still find them without polluting the
 visual output.
 
-### Deferred visual redesign
+### Visual redesign (in progress)
 
-A wider visual redesign is intentionally **not** part of this phase.
-RBAC, admin surfaces, and account-creation UX needed to stabilize
-first. Once the new admin and rider flows are validated, redesign
-can proceed against the now-segmented surface without re-litigating
-behavior.
+A token-driven visual redesign is now underway on branch
+`feature/ui-redesign`, broken into atomic phases so behavior, routes,
+and tests remain untouched. Completed so far:
+
+- **Design tokens (Phase 0)** — `src/frontend/styles/tokens.css` and
+  `styles/base.css` define a full token system (Manrope font, type and
+  spacing scales, radius, motion, shadows) plus a hybrid palette
+  (slate + emerald for customer, neutral slate + indigo for admin).
+  Backed by `src/frontend/utils/theme.js` which persists the chosen
+  theme in `localStorage` and falls back to `prefers-color-scheme`.
+- **Layout shell + dark mode (Phase 1)** — `src/frontend/components/Layout.jsx`,
+  `components/ThemeToggle.jsx`, `hooks/useTheme.js`, and
+  `styles/components/layout.css` deliver a sticky top navigation with
+  brand mark, role pill, theme toggle (Moon/Sun via `lucide-react`),
+  and a hamburger drawer for narrow viewports. Admin sessions get a
+  dark slate nav with an indigo accent via `body[data-area="admin"]`.
+
+User-visible features added in this work:
+
+- **Dark mode** — auto-detects your system preference on first visit;
+  toggle in the top nav (Moon/Sun icon); persisted across sessions via
+  `localStorage` under key `escooter.theme`.
+
+Per-screen redesigns (auth landing, customer fleet/map/bookings,
+admin tables, income dashboard, polish) are scheduled as subsequent
+atomic phases. Each phase keeps the old CSS rules in place as dead
+code until the final sweep, so any individual phase can be reverted
+without disturbing untouched screens.
 
 ## Testing
 
