@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Lock, Plus, RotateCcw, X } from 'lucide-react';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
@@ -75,6 +76,9 @@ export default function AdminBookings({ session }) {
   const [walkinSubmitting, setWalkinSubmitting] = useState(false);
   const [walkinMessage, setWalkinMessage] = useState({ text: '', state: '' });
 
+  const walkinTriggerRef = useRef(null);
+  const walkinModalRef = useRef(null);
+
   const fetchBookings = useCallback(
     async (signal) => {
       if (!token) {
@@ -145,6 +149,35 @@ export default function AdminBookings({ session }) {
     return () => controller.abort();
   }, [fetchBookings, token]);
 
+  useEffect(() => {
+    if (!showWalkinModal) {
+      return;
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape' && !walkinSubmitting) {
+        event.preventDefault();
+        closeWalkinModal();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showWalkinModal, walkinSubmitting]);
+
+  useEffect(() => {
+    if (!showWalkinModal || !walkinModalRef.current) {
+      return;
+    }
+
+    const focusable = walkinModalRef.current.querySelector(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable && typeof focusable.focus === 'function') {
+      focusable.focus();
+    }
+  }, [showWalkinModal]);
+
   const summary = useMemo(() => {
     const total = bookings.length;
     let active = 0;
@@ -172,10 +205,26 @@ export default function AdminBookings({ session }) {
     setWalkinMessage({ text: '', state: '' });
   }
 
-  function openWalkinModal() {
+  function openWalkinModal(triggerElement) {
+    if (triggerElement instanceof HTMLElement) {
+      walkinTriggerRef.current = triggerElement;
+    }
     setWalkinForm(INITIAL_WALKIN_FORM);
     setWalkinMessage({ text: '', state: '' });
     setShowWalkinModal(true);
+  }
+
+  function closeWalkinModal() {
+    if (walkinSubmitting) {
+      return;
+    }
+    setShowWalkinModal(false);
+    setWalkinMessage({ text: '', state: '' });
+    const trigger = walkinTriggerRef.current;
+    walkinTriggerRef.current = null;
+    if (trigger && typeof trigger.focus === 'function') {
+      trigger.focus();
+    }
   }
 
   async function handleWalkinSubmit(event) {
@@ -233,12 +282,14 @@ export default function AdminBookings({ session }) {
 
   if (!token) {
     return (
-      <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide">
-          <div className="panel-header">
-            <h2>Bookings overview</h2>
+      <section className="admin-shell">
+        <article className="admin-card admin-card--accent">
+          <div className="admin-header">
+            <div className="admin-header__text">
+              <h2 className="admin-title">Bookings overview</h2>
+            </div>
           </div>
-          <p className="empty-state">
+          <p className="admin-empty">
             Sign in as a staff member or administrator to review platform bookings.
           </p>
         </article>
@@ -247,22 +298,30 @@ export default function AdminBookings({ session }) {
   }
 
   return (
-    <section className="my-bookings-view">
-      <article className="panel panel-accent panel-wide">
-        <div className="panel-header panel-header--row">
-          <div>
-            <p className="panel-kicker">Admin</p>
-            <h2>Bookings overview</h2>
+    <section className="admin-shell">
+      <article className="admin-card admin-card--accent">
+        <div className="admin-header">
+          <div className="admin-header__text">
+            <p className="admin-kicker">Admin</p>
+            <h2 className="admin-title">Bookings overview</h2>
           </div>
-          <button type="button" onClick={openWalkinModal}>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={(e) => openWalkinModal(e.currentTarget)}
+          >
+            <Plus size={16} aria-hidden="true" />
             Book Walk-in
           </button>
         </div>
 
-        <div className="admin-filter-grid">
-          <label htmlFor="admin-bookings-status">
-            Status
+        <div className="admin-filters">
+          <div className="field">
+            <label className="field__label" htmlFor="admin-bookings-status">
+              Status
+            </label>
             <select
+              className="input"
               id="admin-bookings-status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -273,116 +332,103 @@ export default function AdminBookings({ session }) {
                 </option>
               ))}
             </select>
-          </label>
-          <label htmlFor="admin-bookings-scooter">
-            Scooter ID
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="admin-bookings-scooter">
+              Scooter ID
+            </label>
             <input
+              className="input"
               id="admin-bookings-scooter"
               type="text"
               placeholder="ESC-001"
               value={scooterFilter}
               onChange={(event) => setScooterFilter(event.target.value)}
             />
-          </label>
+          </div>
           <button
             type="button"
-            className="secondary"
+            className="btn btn--ghost"
             onClick={() => {
               setStatusFilter('');
               setScooterFilter('');
             }}
           >
+            <RotateCcw size={14} aria-hidden="true" />
             Reset filters
           </button>
         </div>
 
-        <div className="admin-summary-row" role="list">
-          <div className="summary-card" role="listitem">
-            <p className="summary-label">Total bookings</p>
-            <p className="summary-value">{summary.total}</p>
+        <div className="admin-kpi-row">
+          <div className="admin-kpi">
+            <p className="admin-kpi__label">Total bookings</p>
+            <p className="admin-kpi__value">{summary.total}</p>
           </div>
-          <div className="summary-card summary-card--available" role="listitem">
-            <p className="summary-label">Active</p>
-            <p className="summary-value">{summary.active}</p>
+          <div className="admin-kpi admin-kpi--active">
+            <p className="admin-kpi__label">Active</p>
+            <p className="admin-kpi__value">{summary.active}</p>
           </div>
-          <div className="summary-card summary-card--reserved" role="listitem">
-            <p className="summary-label">Completed</p>
-            <p className="summary-value">{summary.completed}</p>
+          <div className="admin-kpi admin-kpi--completed">
+            <p className="admin-kpi__label">Completed</p>
+            <p className="admin-kpi__value">{summary.completed}</p>
           </div>
-          <div className="summary-card" role="listitem">
-            <p className="summary-label">Revenue (filtered)</p>
-            <p className="summary-value">{formatCurrency(summary.revenue)}</p>
+          <div className="admin-kpi">
+            <p className="admin-kpi__label">Revenue (filtered)</p>
+            <p className="admin-kpi__value">{formatCurrency(summary.revenue)}</p>
           </div>
         </div>
 
         {isLoading ? (
-          <p className="empty-state">Loading bookings overview...</p>
+          <p className="admin-loading">Loading bookings overview...</p>
         ) : error ? (
-          <p className="message" data-state="error" role="alert">
+          <div className="alert alert--error" role="alert">
             {error}
-          </p>
+          </div>
         ) : bookings.length === 0 ? (
-          <p className="empty-state">No bookings match the current filters.</p>
+          <p className="admin-empty">No bookings match the current filters.</p>
         ) : (
-          <div className="booking-history" role="list">
-            {bookings.map((booking) => (
-              <article
-                key={booking.bookingId}
-                className="booking-history__item"
-                role="listitem"
-              >
-                <div className="booking-history__header">
-                  <div>
-                    <p className="summary-label">Booking</p>
-                    <p className="summary-value">#{booking.bookingId}</p>
-                  </div>
-                  <span
-                    className={`status-pill status-pill--${booking.status}`}
-                  >
-                    {toStatusLabel(booking.status)}
-                  </span>
-                </div>
-
-                <div className="booking-history__grid">
-                  <div className="summary-card">
-                    <p className="summary-label">User</p>
-                    <p className="summary-value">
+          <div className="admin-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="data-table__th" scope="col">Booking</th>
+                  <th className="data-table__th" scope="col">Status</th>
+                  <th className="data-table__th" scope="col">User</th>
+                  <th className="data-table__th" scope="col">Scooter</th>
+                  <th className="data-table__th" scope="col">Plan</th>
+                  <th className="data-table__th" scope="col">Total</th>
+                  <th className="data-table__th" scope="col">Created</th>
+                  <th className="data-table__th" scope="col">Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bookings.map((booking) => (
+                  <tr key={booking.bookingId}>
+                    <td className="data-table__td" data-label="Booking">
+                      <span className="data-table__booking-id">#{booking.bookingId}</span>
+                    </td>
+                    <td className="data-table__td" data-label="Status">
+                      <span className={`status-pill status-pill--${booking.status}`}>
+                        {toStatusLabel(booking.status)}
+                      </span>
+                    </td>
+                    <td className="data-table__td" data-label="User">
                       {booking.userFullName || `User #${booking.userId}`}
-                    </p>
-                    <p className="hire-note">{booking.userEmail || ''}</p>
-                  </div>
-                  <div className="summary-card">
-                    <p className="summary-label">Scooter</p>
-                    <p className="summary-value">{booking.scooterId}</p>
-                  </div>
-                  <div className="summary-card">
-                    <p className="summary-label">Hire plan</p>
-                    <p className="summary-value">
-                      {DURATION_LABELS[booking.durationCode] ||
-                        toStatusLabel(booking.durationCode)}
-                    </p>
-                  </div>
-                  <div className="summary-card">
-                    <p className="summary-label">Total price</p>
-                    <p className="summary-value">
-                      {formatCurrency(booking.totalPrice)}
-                    </p>
-                  </div>
-                  <div className="summary-card">
-                    <p className="summary-label">Created</p>
-                    <p className="summary-value">
-                      {formatDateTime(booking.createdAt)}
-                    </p>
-                  </div>
-                  <div className="summary-card">
-                    <p className="summary-label">Last updated</p>
-                    <p className="summary-value">
-                      {formatDateTime(booking.updatedAt)}
-                    </p>
-                  </div>
-                </div>
-              </article>
-            ))}
+                      {booking.userEmail ? (
+                        <span className="data-table__user-email">{booking.userEmail}</span>
+                      ) : null}
+                    </td>
+                    <td className="data-table__td" data-label="Scooter">{booking.scooterId}</td>
+                    <td className="data-table__td" data-label="Plan">
+                      {DURATION_LABELS[booking.durationCode] || toStatusLabel(booking.durationCode)}
+                    </td>
+                    <td className="data-table__td" data-label="Total">{formatCurrency(booking.totalPrice)}</td>
+                    <td className="data-table__td" data-label="Created">{formatDateTime(booking.createdAt)}</td>
+                    <td className="data-table__td" data-label="Updated">{formatDateTime(booking.updatedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </article>
@@ -390,170 +436,214 @@ export default function AdminBookings({ session }) {
       {/* Walk-in booking modal */}
       {showWalkinModal && (
         <div
-          className="modal-backdrop"
-          role="dialog"
-          aria-label="Book walk-in customer"
+          className="modal-overlay"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
-              setShowWalkinModal(false);
+              closeWalkinModal();
             }
           }}
         >
-          <div className="modal-window">
-            <h3>Book Walk-in Customer</h3>
-
-            <form className="form-grid" onSubmit={handleWalkinSubmit}>
-              <label htmlFor="walkin-scooter">
-                Scooter ID
-                <input
-                  id="walkin-scooter"
-                  type="text"
-                  placeholder="ESC-001"
-                  value={walkinForm.scooterId}
-                  onChange={(e) =>
-                    updateWalkinField('scooterId', e.target.value)
-                  }
-                  required
-                />
-              </label>
-
-              <label htmlFor="walkin-duration">
-                Hire plan
-                <select
-                  id="walkin-duration"
-                  value={walkinForm.durationCode}
-                  onChange={(e) =>
-                    updateWalkinField('durationCode', e.target.value)
-                  }
-                  required
-                >
-                  {DURATION_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <fieldset className="plan-selector">
-                <legend className="form-section-title">
-                  Guest details (optional)
-                </legend>
-                <label htmlFor="walkin-guest-name">
-                  Name
+          <div
+            className="modal"
+            ref={walkinModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="walkin-dialog-title"
+          >
+            <div className="modal__header">
+              <h2 className="modal__title" id="walkin-dialog-title">
+                Book Walk-in Customer
+              </h2>
+              <button
+                type="button"
+                className="modal__close"
+                onClick={closeWalkinModal}
+                aria-label="Close"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="modal__body">
+              <form className="fleet-modal__form" onSubmit={handleWalkinSubmit}>
+                <div className="field">
+                  <label className="field__label" htmlFor="walkin-scooter">
+                    Scooter ID
+                  </label>
                   <input
-                    id="walkin-guest-name"
+                    className="input"
+                    id="walkin-scooter"
                     type="text"
-                    placeholder="Jane Doe"
-                    value={walkinForm.guestName}
+                    placeholder="ESC-001"
+                    value={walkinForm.scooterId}
                     onChange={(e) =>
-                      updateWalkinField('guestName', e.target.value)
+                      updateWalkinField('scooterId', e.target.value)
                     }
+                    required
                   />
-                </label>
-                <label htmlFor="walkin-guest-email">
-                  Email (for confirmation)
-                  <input
-                    id="walkin-guest-email"
-                    type="email"
-                    placeholder="jane@example.com"
-                    value={walkinForm.guestEmail}
-                    onChange={(e) =>
-                      updateWalkinField('guestEmail', e.target.value)
-                    }
-                  />
-                </label>
-              </fieldset>
+                </div>
 
-              <fieldset className="plan-selector">
-                <legend className="form-section-title">
-                  Payment (simulated)
-                </legend>
-                <div className="payment-grid">
-                  <label htmlFor="walkin-cardholder">
-                    Cardholder name
+                <div className="field">
+                  <label className="field__label" htmlFor="walkin-duration">
+                    Hire plan
+                  </label>
+                  <select
+                    className="input"
+                    id="walkin-duration"
+                    value={walkinForm.durationCode}
+                    onChange={(e) =>
+                      updateWalkinField('durationCode', e.target.value)
+                    }
+                    required
+                  >
+                    {DURATION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <fieldset className="admin-modal__section">
+                  <legend>Guest details (optional)</legend>
+                  <div className="field">
+                    <label className="field__label" htmlFor="walkin-guest-name">
+                      Name
+                    </label>
                     <input
-                      id="walkin-cardholder"
+                      className="input"
+                      id="walkin-guest-name"
                       type="text"
                       placeholder="Jane Doe"
-                      value={walkinForm.cardholderName}
+                      value={walkinForm.guestName}
                       onChange={(e) =>
-                        updateWalkinField('cardholderName', e.target.value)
+                        updateWalkinField('guestName', e.target.value)
                       }
-                      required
                     />
-                  </label>
-                  <label htmlFor="walkin-card-number">
-                    Card number (16 digits)
+                  </div>
+                  <div className="field">
+                    <label className="field__label" htmlFor="walkin-guest-email">
+                      Email (for confirmation)
+                    </label>
                     <input
-                      id="walkin-card-number"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="4242 4242 4242 4242"
-                      value={walkinForm.cardNumber}
+                      className="input"
+                      id="walkin-guest-email"
+                      type="email"
+                      placeholder="jane@example.com"
+                      value={walkinForm.guestEmail}
                       onChange={(e) =>
-                        updateWalkinField('cardNumber', e.target.value)
+                        updateWalkinField('guestEmail', e.target.value)
                       }
-                      required
                     />
-                  </label>
-                  <label htmlFor="walkin-expiry">
-                    Expiry (MM/YY)
-                    <input
-                      id="walkin-expiry"
-                      type="text"
-                      placeholder="12/30"
-                      value={walkinForm.expiryDate}
-                      onChange={(e) =>
-                        updateWalkinField('expiryDate', e.target.value)
-                      }
-                      required
-                    />
-                  </label>
-                  <label htmlFor="walkin-cvv">
-                    CVV
-                    <input
-                      id="walkin-cvv"
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="123"
-                      value={walkinForm.cvv}
-                      onChange={(e) =>
-                        updateWalkinField('cvv', e.target.value)
-                      }
-                      required
-                    />
-                  </label>
+                  </div>
+                </fieldset>
+
+                <fieldset className="admin-modal__section">
+                  <legend>Payment (simulated)</legend>
+                  <p className="fleet-modal__payment-heading">
+                    <Lock size={14} aria-hidden="true" />
+                    Card details
+                  </p>
+                  <div className="page-form__row">
+                    <div className="field">
+                      <label className="field__label" htmlFor="walkin-cardholder">
+                        Cardholder name
+                      </label>
+                      <input
+                        className="input"
+                        id="walkin-cardholder"
+                        type="text"
+                        placeholder="Jane Doe"
+                        value={walkinForm.cardholderName}
+                        onChange={(e) =>
+                          updateWalkinField('cardholderName', e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label className="field__label" htmlFor="walkin-card-number">
+                        Card number
+                      </label>
+                      <input
+                        className="input"
+                        id="walkin-card-number"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="4242 4242 4242 4242"
+                        value={walkinForm.cardNumber}
+                        onChange={(e) =>
+                          updateWalkinField('cardNumber', e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label className="field__label" htmlFor="walkin-expiry">
+                        Expiry (MM/YY)
+                      </label>
+                      <input
+                        className="input"
+                        id="walkin-expiry"
+                        type="text"
+                        placeholder="12/30"
+                        value={walkinForm.expiryDate}
+                        onChange={(e) =>
+                          updateWalkinField('expiryDate', e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label className="field__label" htmlFor="walkin-cvv">
+                        CVV
+                      </label>
+                      <input
+                        className="input"
+                        id="walkin-cvv"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="123"
+                        value={walkinForm.cvv}
+                        onChange={(e) =>
+                          updateWalkinField('cvv', e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+                  <p className="admin-modal__payment-note">
+                    Use 4242 4242 4242 4242 for success or 4000 0000 0000 0002
+                    for decline (simulator only).
+                  </p>
+                </fieldset>
+
+                {walkinMessage.text ? (
+                  <div
+                    className={`alert ${walkinMessage.state === 'error' ? 'alert--error' : 'alert--success'}`}
+                    role="alert"
+                  >
+                    {walkinMessage.text}
+                  </div>
+                ) : null}
+
+                <div className="modal__footer">
+                  <button
+                    type="submit"
+                    className="btn btn--primary"
+                    disabled={walkinSubmitting}
+                  >
+                    {walkinSubmitting ? 'Booking...' : 'Create booking'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={closeWalkinModal}
+                  >
+                    Cancel
+                  </button>
                 </div>
-                <p className="payment-note">
-                  Use 4242 4242 4242 4242 for success or 4000 0000 0000 0002
-                  for decline (simulator only).
-                </p>
-              </fieldset>
-
-              {walkinMessage.text ? (
-                <p
-                  className="message"
-                  data-state={walkinMessage.state}
-                  role="alert"
-                >
-                  {walkinMessage.text}
-                </p>
-              ) : null}
-
-              <div className="modal-actions">
-                <button type="submit" disabled={walkinSubmitting}>
-                  {walkinSubmitting ? 'Booking...' : 'Create booking'}
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => setShowWalkinModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

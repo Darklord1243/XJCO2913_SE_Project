@@ -6,6 +6,7 @@
 @import url('./styles/components/map.css');
 @import url('./styles/components/fleet.css');
 @import url('./styles/components/bookings.css');
+@import url('./styles/components/admin.css');
 
 :root {
   color-scheme: light;
