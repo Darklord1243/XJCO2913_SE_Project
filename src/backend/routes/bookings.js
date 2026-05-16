@@ -20,7 +20,10 @@ const {
   findUserByEmail,
   transactionMutex,
 } = require('../database');
-const { sendBookingConfirmation } = require('../email-service');
+const {
+  sendBookingCompletedEmail,
+  sendBookingConfirmationEmail,
+} = require('../email-service');
 const db = require('../db/connection');
 
 const DISCOUNTED_USER_TYPES = new Set(['student', 'senior']);
@@ -347,19 +350,23 @@ router.post('/bookings', async (req, res) => {
       throw transactionError;
     }
 
-    // Fire-and-forget: email confirmation (errors logged internally, never thrown)
-    sendBookingConfirmation(createdBooking, user, scooter);
+    const responseData = {
+      ...mapBookingRow(createdBooking),
+      paymentStatus: paymentResult.value.paymentStatus,
+      paymentReference: paymentResult.value.paymentReference,
+      scooterStatus: 'in_use',
+      discountApplied,
+      originalPrice,
+    };
+
+    void sendBookingConfirmationEmail({
+      user,
+      booking: responseData,
+    });
 
     return res.status(201).json({
       success: true,
-      data: {
-        ...mapBookingRow(createdBooking),
-        paymentStatus: paymentResult.value.paymentStatus,
-        paymentReference: paymentResult.value.paymentReference,
-        scooterStatus: 'in_use',
-        discountApplied,
-        originalPrice,
-      },
+      data: responseData,
     });
   } catch (error) {
     console.error('POST /api/bookings failed:', error);
@@ -458,9 +465,16 @@ router.patch('/bookings/:bookingId/cancel', async (req, res) => {
       [bookingId]
     );
 
+    const responseData = mapBookingRow(updated);
+
+    void sendBookingCompletedEmail({
+      user,
+      booking: responseData,
+    });
+
     return res.status(200).json({
       success: true,
-      data: mapBookingRow(updated),
+      data: responseData,
     });
   } catch (error) {
     console.error('PATCH /api/bookings/:bookingId/cancel failed:', error);
@@ -938,22 +952,29 @@ router.post('/admin/bookings', async (req, res) => {
       throw transactionError;
     }
 
+    const walkinResponseData = {
+      ...mapBookingRow(createdBooking),
+      paymentStatus: paymentResult.value.paymentStatus,
+      paymentReference: paymentResult.value.paymentReference,
+      scooterStatus: 'in_use',
+      discountApplied: false,
+      originalPrice: totalPrice,
+    };
+
     // Fire-and-forget email only when a real guest email was provided (skip
-    // for internal walkin placeholder — no one reads that inbox).
+    // internal walkin@escooter.internal placeholder).
     const guestEmailTrimmed = (req.body?.guestEmail || '').trim().toLowerCase();
     if (guestEmailTrimmed && targetUser.email === guestEmailTrimmed) {
-      sendBookingConfirmation(createdBooking, targetUser, scooter);
+      void sendBookingConfirmationEmail({
+        user: targetUser,
+        booking: walkinResponseData,
+      });
     }
 
     return res.status(201).json({
       success: true,
       data: {
-        ...mapBookingRow(createdBooking),
-        paymentStatus: paymentResult.value.paymentStatus,
-        paymentReference: paymentResult.value.paymentReference,
-        scooterStatus: 'in_use',
-        discountApplied: false,
-        originalPrice: totalPrice,
+        ...walkinResponseData,
         guestEmail:
           targetUser.email !== WALKIN_INTERNAL_EMAIL
             ? targetUser.email

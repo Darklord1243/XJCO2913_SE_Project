@@ -1,261 +1,185 @@
-const test = require('node:test');
 const assert = require('node:assert/strict');
-const EventEmitter = require('events');
-const net = require('net');
+const { describe, test } = require('node:test');
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const {
+  buildBookingCompletedEmail,
+  buildBookingConfirmationEmail,
+  buildRegistrationEmail,
+  buildSmtpConfig,
+  sendMailBestEffort,
+} = require('../src/backend/email-service');
 
-function buildBooking(overrides = {}) {
-  return {
-    id: 1,
-    scooter_id: 'SCOOT-001',
-    duration_code: 'oneHour',
-    total_price: 5.5,
-    status: 'active',
-    ...overrides,
-  };
-}
+describe('email service', () => {
+  test('skips sending when SMTP credentials are not configured', async () => {
+    let createTransportCalled = false;
 
-function buildUser(overrides = {}) {
-  return {
-    id: 42,
-    full_name: 'Ada Lovelace',
-    email: 'ada@example.com',
-    user_type: 'standard',
-    ...overrides,
-  };
-}
-
-function buildScooter(overrides = {}) {
-  return {
-    scooter_id: 'SCOOT-001',
-    status: 'in_use',
-    ...overrides,
-  };
-}
-
-/** Create a mock socket that replays a script of SMTP responses for each write. */
-function createMockSocket(responseScript) {
-  const sock = new EventEmitter();
-  let scriptIndex = 0;
-
-  sock.write = function (data, cb) {
-    const text = Buffer.isBuffer(data) ? data.toString() : data;
-    // Schedule the next scripted response(s)
-    if (scriptIndex < responseScript.length) {
-      const responses = responseScript[scriptIndex];
-      scriptIndex++;
-      if (Array.isArray(responses)) {
-        for (const r of responses) {
-          setImmediate(() => sock.emit('data', r));
-        }
-      } else {
-        setImmediate(() => sock.emit('data', responses));
+    const result = await sendMailBestEffort(
+      {
+        to: 'rider@test.local',
+        subject: 'Test',
+        text: 'Test body',
+      },
+      {
+        env: {},
+        createTransport: () => {
+          createTransportCalled = true;
+        },
       }
-    }
-    if (cb) cb(null);
-    return true;
-  };
-
-  sock.end = function () {};
-
-  // Start: emit greeting on first data listener
-  const originalOn = sock.on.bind(sock);
-  sock.on = function (event, handler) {
-    return originalOn(event, handler);
-  };
-
-  return sock;
-}
-
-function clearEmailModule() {
-  delete process.env.SMTP_HOST;
-  delete require.cache[require.resolve('../src/backend/email-service')];
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-test('email-service: when SMTP_HOST is unset email is disabled', async () => {
-  delete process.env.SMTP_HOST;
-  delete require.cache[require.resolve('../src/backend/email-service')];
-
-  const { emailEnabled, sendBookingConfirmation } = require('../src/backend/email-service');
-
-  assert.equal(emailEnabled(), false);
-
-  // Should be a no-op (no error thrown)
-  await sendBookingConfirmation(buildBooking(), buildUser(), buildScooter());
-
-  clearEmailModule();
-});
-
-test('email-service: sendBookingConfirmation skips when data is missing', async () => {
-  process.env.SMTP_HOST = 'localhost';
-  delete require.cache[require.resolve('../src/backend/email-service')];
-
-  const { emailEnabled, sendBookingConfirmation } = require('../src/backend/email-service');
-
-  assert.equal(emailEnabled(), true);
-
-  // Missing user.email — should skip without throwing
-  await sendBookingConfirmation(
-    buildBooking(),
-    { id: 42, full_name: 'No Email', email: '' },
-    buildScooter()
-  );
-
-  // Missing booking — should skip without throwing
-  await sendBookingConfirmation(null, buildUser(), buildScooter());
-
-  clearEmailModule();
-});
-
-test('email-service: sends well-formed SMTP message', async () => {
-  process.env.SMTP_HOST = 'smtp.test';
-  process.env.SMTP_PORT = '25';
-  delete require.cache[require.resolve('../src/backend/email-service')];
-
-  let capturedWrites = [];
-
-  const originalCreateConnection = net.createConnection;
-  net.createConnection = function (options) {
-    const sock = new EventEmitter();
-    let scriptIdx = 0;
-
-    // Script: response after each write
-    const greetings = ['220 smtp.test ready\r\n'];
-    const afterEhlo = ['250-smtp.test\r\n250 HELP\r\n'];
-    const afterMail = ['250 OK\r\n'];
-    const afterRcpt = ['250 OK\r\n'];
-    const afterData = ['354 Start mail input\r\n'];
-    const afterBody = ['250 OK queued\r\n'];
-    const afterQuit = ['221 Bye\r\n'];
-
-    const script = [
-      greetings,  // after connect (emitted immediately)
-      afterEhlo,  // after EHLO write
-      afterMail,  // after MAIL FROM write
-      afterRcpt,  // after RCPT TO write
-      afterData,  // after DATA write
-      afterBody,  // after message body + dot
-      afterQuit,  // after QUIT write
-    ];
-
-    // Emit greeting right after connect
-    setImmediate(() => {
-      if (greetings.length) {
-        for (const r of greetings) sock.emit('data', r);
-      }
-    });
-
-    sock.write = function (data, cb) {
-      capturedWrites.push(Buffer.isBuffer(data) ? data.toString() : String(data));
-      scriptIdx++;
-
-      const responses = script[scriptIdx];
-      if (responses) {
-        for (const r of responses) {
-          setImmediate(() => sock.emit('data', r));
-        }
-      }
-
-      if (cb) cb(null);
-      return true;
-    };
-
-    sock.end = function () {};
-    return sock;
-  };
-
-  try {
-    const { sendBookingConfirmation } = require('../src/backend/email-service');
-
-    await sendBookingConfirmation(
-      buildBooking({ duration_code: 'oneDay', total_price: 25.0 }),
-      buildUser(),
-      buildScooter()
     );
 
-    const all = capturedWrites.join('');
+    assert.equal(result.skipped, true);
+    assert.equal(result.reason, 'smtp_not_configured');
+    assert.equal(createTransportCalled, false);
+  });
 
-    // Verify SMTP conversation structure
-    assert.ok(all.includes('EHLO escooter.local'), 'EHLO');
-    assert.ok(all.includes('MAIL FROM:<noreply@escooter.local>'), 'MAIL FROM');
-    assert.ok(all.includes('RCPT TO:<ada@example.com>'), 'RCPT TO');
-    assert.ok(all.includes('DATA\r\n'), 'DATA command');
+  test('uses QQ SMTP defaults when credentials are configured', () => {
+    const config = buildSmtpConfig({
+      SMTP_USER: '2833085151@qq.com',
+      SMTP_PASS: 'smtp-code',
+    });
 
-    // Verify email content
-    assert.ok(all.includes('Subject: Booking confirmed'), 'subject');
-    assert.ok(all.includes('Scooter:      SCOOT-001'), 'scooter');
-    assert.ok(all.includes('Plan:         1 Day'), 'plan label');
-    assert.ok(all.includes('Total price:  £25.00'), 'price');
-    assert.ok(all.includes('Hi Ada Lovelace'), 'user name');
+    assert.equal(config.enabled, true);
+    assert.equal(config.from, 'E-Scooter Rental Platform <2833085151@qq.com>');
+    assert.equal(config.transport.host, 'smtp.qq.com');
+    assert.equal(config.transport.port, 465);
+    assert.equal(config.transport.secure, true);
+    assert.deepEqual(config.transport.auth, {
+      user: '2833085151@qq.com',
+      pass: 'smtp-code',
+    });
+  });
 
-    // Message body must contain CRLF dot CRLF (SMTP data terminator)
-    assert.ok(all.includes('\r\n.\r\n'), 'message body includes dot terminator');
+  test('enables Mailpit-style relay when SMTP_HOST is set without credentials', () => {
+    const config = buildSmtpConfig({
+      SMTP_HOST: 'localhost',
+      SMTP_PORT: '1025',
+    });
 
-    // QUIT must be sent after the message body
-    const dotIdx = all.lastIndexOf('\r\n.\r\n');
-    const quitIdx = all.indexOf('QUIT\r\n');
-    assert.ok(quitIdx > dotIdx, 'QUIT sent after message body');
-  } finally {
-    net.createConnection = originalCreateConnection;
-    clearEmailModule();
-  }
-});
+    assert.equal(config.enabled, true);
+    assert.equal(config.transport.host, 'localhost');
+    assert.equal(config.transport.port, 1025);
+    assert.equal(config.transport.secure, false);
+    assert.equal(config.transport.auth, undefined);
+  });
 
-test('email-service: connection error is caught and does not throw', async () => {
-  process.env.SMTP_HOST = 'smtp.down';
-  delete require.cache[require.resolve('../src/backend/email-service')];
+  test('sends through injected transport when SMTP is configured', async () => {
+    let capturedTransport = null;
+    let capturedMail = null;
 
-  const originalCreateConnection = net.createConnection;
-  net.createConnection = function () {
-    const sock = new EventEmitter();
-    sock.write = function (data, cb) {
-      if (cb) cb(null);
-      return true;
-    };
-    sock.end = function () {};
-    setImmediate(() => sock.emit('error', new Error('ECONNREFUSED')));
-    return sock;
-  };
+    const result = await sendMailBestEffort(
+      {
+        to: 'rider@test.local',
+        subject: 'Test',
+        text: 'Test body',
+      },
+      {
+        env: {
+          SMTP_USER: '2833085151@qq.com',
+          SMTP_PASS: 'smtp-code',
+        },
+        createTransport: (transport) => {
+          capturedTransport = transport;
+          return {
+            sendMail: async (mail) => {
+              capturedMail = mail;
+            },
+          };
+        },
+      }
+    );
 
-  try {
-    const { sendBookingConfirmation } = require('../src/backend/email-service');
-    await sendBookingConfirmation(buildBooking(), buildUser(), buildScooter());
-    assert.ok(true, 'does not throw on connection error');
-  } finally {
-    net.createConnection = originalCreateConnection;
-    clearEmailModule();
-  }
-});
+    assert.equal(result.sent, true);
+    assert.equal(capturedTransport.host, 'smtp.qq.com');
+    assert.equal(
+      capturedMail.from,
+      'E-Scooter Rental Platform <2833085151@qq.com>'
+    );
+    assert.equal(capturedMail.to, 'rider@test.local');
+  });
 
-test('email-service: SMTP error response does not throw', async () => {
-  process.env.SMTP_HOST = 'smtp.reject';
-  delete require.cache[require.resolve('../src/backend/email-service')];
+  test('returns sent:false when transport throws (does not rethrow)', async () => {
+    const result = await sendMailBestEffort(
+      {
+        to: 'rider@test.local',
+        subject: 'Test',
+        text: 'Test body',
+      },
+      {
+        env: {
+          SMTP_USER: 'user@test.local',
+          SMTP_PASS: 'secret',
+        },
+        createTransport: () => ({
+          sendMail: async () => {
+            throw new Error('ECONNREFUSED');
+          },
+        }),
+      }
+    );
 
-  const originalCreateConnection = net.createConnection;
-  net.createConnection = function () {
-    const sock = new EventEmitter();
-    sock.write = function (data, cb) {
-      if (cb) cb(null);
-      return true;
-    };
-    sock.end = function () {};
-    setImmediate(() => sock.emit('data', '550 Mailbox unavailable\r\n'));
-    return sock;
-  };
+    assert.equal(result.sent, false);
+    assert.ok(result.error);
+  });
 
-  try {
-    const { sendBookingConfirmation } = require('../src/backend/email-service');
-    await sendBookingConfirmation(buildBooking(), buildUser(), buildScooter());
-    assert.ok(true, 'does not throw on SMTP error response');
-  } finally {
-    net.createConnection = originalCreateConnection;
-    clearEmailModule();
-  }
+  test('registration email includes account details', () => {
+    const mail = buildRegistrationEmail({
+      full_name: 'Happy Rider',
+      email: 'happy@test.local',
+      user_type: 'student',
+    });
+
+    assert.equal(mail.to, 'happy@test.local');
+    assert.match(mail.subject, /Welcome/);
+    assert.match(mail.text, /Happy Rider/);
+    assert.match(mail.text, /happy@test\.local/);
+    assert.match(mail.text, /student/);
+  });
+
+  test('booking confirmation email includes booking and payment details', () => {
+    const mail = buildBookingConfirmationEmail({
+      user: {
+        full_name: 'Happy Rider',
+        email: 'happy@test.local',
+      },
+      booking: {
+        bookingId: 42,
+        scooterId: 'ESC-001',
+        durationCode: 'oneHour',
+        totalPrice: 5,
+        paymentReference: 'PAY-1234',
+        createdAt: '2026-05-12T10:00:00Z',
+      },
+    });
+
+    assert.equal(mail.to, 'happy@test.local');
+    assert.match(mail.subject, /Booking #42 confirmed/);
+    assert.match(mail.text, /ESC-001/);
+    assert.match(mail.text, /1 hour/);
+    assert.match(mail.text, /GBP 5\.00/);
+    assert.match(mail.text, /PAY-1234/);
+  });
+
+  test('booking completed email includes completion details', () => {
+    const mail = buildBookingCompletedEmail({
+      user: {
+        full_name: 'Happy Rider',
+        email: 'happy@test.local',
+      },
+      booking: {
+        bookingId: 43,
+        scooterId: 'ESC-002',
+        durationCode: 'fourHours',
+        totalPrice: 15,
+        status: 'completed',
+        updatedAt: '2026-05-12T11:00:00Z',
+      },
+    });
+
+    assert.equal(mail.to, 'happy@test.local');
+    assert.match(mail.subject, /Booking #43 completed/);
+    assert.match(mail.text, /ESC-002/);
+    assert.match(mail.text, /4 hours/);
+    assert.match(mail.text, /completed/);
+    assert.match(mail.text, /2026-05-12 11:00:00 UTC/);
+  });
 });

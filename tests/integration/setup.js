@@ -11,8 +11,17 @@ const fs = require('fs');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const BACKEND_MARKER = `${path.sep}src${path.sep}backend${path.sep}`;
+const SMTP_ENV_KEYS = [
+  'SMTP_USER',
+  'SMTP_PASS',
+  'SMTP_FROM',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_SECURE',
+];
 
 let activeDb = null;
+let savedSmtpEnv = null;
 
 function clearBackendModuleCache() {
   for (const key of Object.keys(require.cache)) {
@@ -35,9 +44,35 @@ function dbExec(db, sql) {
   });
 }
 
+function disableSmtpForTest() {
+  savedSmtpEnv = {};
+
+  for (const key of SMTP_ENV_KEYS) {
+    savedSmtpEnv[key] = process.env[key];
+    delete process.env[key];
+  }
+}
+
+function restoreSmtpEnv() {
+  if (!savedSmtpEnv) {
+    return;
+  }
+
+  for (const key of SMTP_ENV_KEYS) {
+    if (savedSmtpEnv[key] === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = savedSmtpEnv[key];
+    }
+  }
+
+  savedSmtpEnv = null;
+}
+
 async function setupTestApp() {
   await teardownTestApp();
 
+  disableSmtpForTest();
   process.env.DB_PATH = ':memory:';
   clearBackendModuleCache();
 
@@ -132,6 +167,7 @@ async function teardownTestApp() {
   }
 
   delete process.env.DB_PATH;
+  restoreSmtpEnv();
   clearBackendModuleCache();
 }
 

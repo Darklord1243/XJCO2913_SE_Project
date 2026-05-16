@@ -1,251 +1,268 @@
-/**
- * Booking confirmation email sender.
- *
- * Configured via SMTP_* environment variables. If SMTP_HOST is unset the
- * module disables itself gracefully — no email is sent and a warning is
- * logged at startup. For local dev point a catch-all SMTP server (Mailpit,
- * Ethereal) at localhost:1025.
- *
- * Uses Node's built-in `net` module (no external dependencies) to speak
- * minimal SMTP. This is coursework-appropriate; a production service would
- * use a dedicated library (e.g. nodemailer) for retry, pooling, and DKIM.
- */
-const net = require('net');
+const nodemailer = require('nodemailer');
 
-const SMTP_HOST = (process.env.SMTP_HOST || '').trim();
-const SMTP_PORT = Number(process.env.SMTP_PORT) || 1025;
-const SMTP_USER = (process.env.SMTP_USER || '').trim();
-const SMTP_PASS = (process.env.SMTP_PASS || '').trim();
-const SMTP_FROM =
-  (process.env.SMTP_FROM || '').trim() || 'noreply@escooter.local';
+const PLATFORM_NAME = 'E-Scooter Rental Platform';
+const DEFAULT_SMTP_HOST = 'smtp.qq.com';
+const DEFAULT_SMTP_PORT = 465;
+const DEFAULT_SMTP_SECURE = true;
 
-const enabled = Boolean(SMTP_HOST);
+const DURATION_LABELS = {
+  oneHour: '1 hour',
+  fourHours: '4 hours',
+  oneDay: '1 day',
+  oneWeek: '1 week',
+};
+
+function cleanText(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function parseSmtpPort(value, fallback) {
+  const parsed = Number.parseInt(cleanText(value), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseSmtpSecure(value) {
+  const normalized = cleanText(value).toLowerCase();
+
+  if (!normalized) {
+    return DEFAULT_SMTP_SECURE;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(normalized);
+}
+
+function buildSmtpConfig(env = process.env) {
+  const user = cleanText(env.SMTP_USER);
+  const pass = cleanText(env.SMTP_PASS);
+  const host = cleanText(env.SMTP_HOST);
+
+  // Local dev catch-all (e.g. Mailpit): SMTP_HOST set without credentials
+  if (host && (!user || !pass)) {
+    const port = parseSmtpPort(env.SMTP_PORT, 1025);
+    return {
+      enabled: true,
+      from: cleanText(env.SMTP_FROM) || 'noreply@escooter.local',
+      transport: {
+        host,
+        port,
+        secure: false,
+      },
+    };
+  }
+
+  if (!user || !pass) {
+    return { enabled: false };
+  }
+
+  const resolvedHost = host || DEFAULT_SMTP_HOST;
+  const port = parseSmtpPort(env.SMTP_PORT, DEFAULT_SMTP_PORT);
+  const secure = parseSmtpSecure(env.SMTP_SECURE);
+  const from = cleanText(env.SMTP_FROM) || `${PLATFORM_NAME} <${user}>`;
+
+  return {
+    enabled: true,
+    from,
+    transport: {
+      host: resolvedHost,
+      port,
+      secure,
+      auth: {
+        user,
+        pass,
+      },
+    },
+  };
+}
 
 function emailEnabled() {
-  return enabled;
+  return buildSmtpConfig().enabled;
 }
 
-// ---------------------------------------------------------------------------
-// Minimal SMTP client (plain-text SASL AUTH LOGIN only)
-// ---------------------------------------------------------------------------
-
-/**
- * Read one SMTP response line (may be multi-line when code is followed by
- * a hyphen, e.g. "250-SIZE"). Resolves with the last line whose trailing
- * code matches `expectedCode`.
- */
-function readResponse(socket, expectedCode) {
-  return new Promise((resolve, reject) => {
-    let lastLine = '';
-    let lastCode = 0;
-    let buffer = '';
-
-    function onData(chunk) {
-      buffer += chunk.toString();
-
-      // SMTP responses end with CRLF; multi-line lines have code-hyphen.
-      // Process all complete lines in the buffer.
-      let idx;
-      while ((idx = buffer.indexOf('\r\n')) !== -1) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-        lastLine = line;
-        lastCode = Number(line.slice(0, 3)) || 0;
-
-        // Lines with "CODE-" are continuations; "CODE " ends the response.
-        if (line.length >= 4 && line[3] === ' ') {
-          socket.removeListener('data', onData);
-          socket.removeListener('error', onError);
-
-          if (lastCode >= 400) {
-            reject(
-              new Error(`SMTP error (${lastCode}): ${lastLine.slice(4)}`)
-            );
-            return;
-          }
-
-          if (expectedCode !== undefined && lastCode !== expectedCode) {
-            reject(
-              new Error(
-                `SMTP unexpected response ${lastCode} (expected ${expectedCode}): ${lastLine.slice(4)}`
-              )
-            );
-            return;
-          }
-
-          resolve(lastLine);
-          return;
-        }
-      }
-    }
-
-    function onError(err) {
-      socket.removeListener('data', onData);
-      socket.removeListener('error', onError);
-      reject(err);
-    }
-
-    socket.on('data', onData);
-    socket.once('error', onError);
-  });
+function getUserName(user) {
+  return cleanText(user?.full_name) || cleanText(user?.fullName) || 'Rider';
 }
 
-function sendCommand(socket, text) {
-  return new Promise((resolve, reject) => {
-    socket.write(text + '\r\n', (err) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      resolve();
-    });
-  });
+function getUserEmail(user) {
+  return cleanText(user?.email);
 }
 
-async function smtpSend(mailOptions) {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-    });
-
-    let finished = false;
-
-    function finish(err) {
-      if (finished) return;
-      finished = true;
-      try {
-        socket.end();
-      } catch (_) {
-        // Best-effort close.
-      }
-      if (err) reject(err);
-      else resolve();
-    }
-
-    socket.once('error', (err) => {
-      if (!finished) {
-        finished = true;
-        reject(new Error(`SMTP connection failed: ${err.message}`));
-      }
-    });
-
-    (async () => {
-      try {
-        // 1. Greeting
-        await readResponse(socket, 220);
-
-        // 2. EHLO
-        await sendCommand(socket, 'EHLO escooter.local');
-        await readResponse(socket, 250);
-
-        // 3. AUTH LOGIN if credentials provided
-        if (SMTP_USER) {
-          await sendCommand(socket, 'AUTH LOGIN');
-          await readResponse(socket, 334);
-          await sendCommand(
-            socket,
-            Buffer.from(SMTP_USER).toString('base64')
-          );
-          await readResponse(socket, 334);
-          await sendCommand(
-            socket,
-            Buffer.from(SMTP_PASS).toString('base64')
-          );
-          await readResponse(socket, 235);
-        }
-
-        // 4. MAIL FROM
-        await sendCommand(socket, `MAIL FROM:<${SMTP_FROM}>`);
-        await readResponse(socket, 250);
-
-        // 5. RCPT TO
-        await sendCommand(socket, `RCPT TO:<${mailOptions.to}>`);
-        await readResponse(socket, 250);
-
-        // 6. DATA
-        await sendCommand(socket, 'DATA');
-        await readResponse(socket, 354);
-
-        // Compose RFC 2822 message
-        const message =
-          `From: ${SMTP_FROM}\r\n` +
-          `To: ${mailOptions.to}\r\n` +
-          `Subject: ${mailOptions.subject}\r\n` +
-          `Content-Type: text/plain; charset=utf-8\r\n` +
-          `Content-Transfer-Encoding: 7bit\r\n` +
-          `\r\n` +
-          `${mailOptions.text}\r\n` +
-          `.`;
-
-        await sendCommand(socket, message);
-        await readResponse(socket, 250);
-
-        // 7. QUIT
-        await sendCommand(socket, 'QUIT');
-        finish(null);
-      } catch (err) {
-        finish(err);
-      }
-    })();
-  });
+function getUserType(user) {
+  return cleanText(user?.user_type) || cleanText(user?.userType) || 'standard';
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+function formatDuration(durationCode) {
+  return DURATION_LABELS[durationCode] || cleanText(durationCode) || 'Unknown';
+}
 
-/**
- * Fire-and-forget: send a booking confirmation email.
- * Errors are logged but never thrown — email failure must not
- * affect the HTTP response.
- */
-async function sendBookingConfirmation(booking, user, scooter) {
-  if (!enabled) {
-    return;
+function formatCurrency(value) {
+  const amount = Number(value);
+  return `GBP ${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`;
+}
+
+function formatTimestamp(value) {
+  const text = cleanText(value);
+
+  if (!text) {
+    return 'Not available';
   }
 
-  if (!booking || !user || !user.email || !scooter) {
-    console.warn(
-      'Email: skipped send — missing booking, user email, or scooter data.'
-    );
-    return;
-  }
+  return text.replace('T', ' ').replace('Z', ' UTC');
+}
 
-  const planLabels = {
-    oneHour: '1 Hour',
-    fourHours: '4 Hours',
-    oneDay: '1 Day',
-    oneWeek: '1 Week',
+function getBookingField(booking, camelName, snakeName) {
+  return booking?.[camelName] ?? booking?.[snakeName] ?? '';
+}
+
+function buildRegistrationEmail(user) {
+  const fullName = getUserName(user);
+  const email = getUserEmail(user);
+  const userType = getUserType(user);
+
+  return {
+    to: email,
+    subject: `Welcome to ${PLATFORM_NAME}`,
+    text: [
+      `Hello ${fullName},`,
+      '',
+      `Your ${PLATFORM_NAME} account has been created successfully.`,
+      '',
+      `Name: ${fullName}`,
+      `Email: ${email}`,
+      `Account type: ${userType}`,
+      '',
+      `Thank you for using ${PLATFORM_NAME}.`,
+    ].join('\n'),
   };
+}
 
-  const planLabel = planLabels[booking.duration_code] || booking.duration_code;
-  const scooterLabel = scooter.scooter_id || 'Unknown';
+function buildBookingConfirmationEmail({ user, booking }) {
+  const fullName = getUserName(user);
+  const bookingId = getBookingField(booking, 'bookingId', 'id');
+  const scooterId = getBookingField(booking, 'scooterId', 'scooter_id');
+  const durationCode = getBookingField(
+    booking,
+    'durationCode',
+    'duration_code'
+  );
+  const totalPrice = getBookingField(booking, 'totalPrice', 'total_price');
+  const paymentReference = getBookingField(
+    booking,
+    'paymentReference',
+    'payment_reference'
+  );
+  const createdAt = getBookingField(booking, 'createdAt', 'created_at');
+
+  return {
+    to: getUserEmail(user),
+    subject: `Booking #${bookingId} confirmed`,
+    text: [
+      `Hello ${fullName},`,
+      '',
+      'Your booking has been confirmed.',
+      '',
+      `Booking ID: #${bookingId}`,
+      `Scooter: ${scooterId}`,
+      `Duration: ${formatDuration(durationCode)}`,
+      `Total price: ${formatCurrency(totalPrice)}`,
+      `Payment reference: ${paymentReference || 'Not available'}`,
+      `Booked at: ${formatTimestamp(createdAt)}`,
+      '',
+      `Thank you for using ${PLATFORM_NAME}.`,
+    ].join('\n'),
+  };
+}
+
+function buildBookingCompletedEmail({ user, booking }) {
+  const fullName = getUserName(user);
+  const bookingId = getBookingField(booking, 'bookingId', 'id');
+  const scooterId = getBookingField(booking, 'scooterId', 'scooter_id');
+  const durationCode = getBookingField(
+    booking,
+    'durationCode',
+    'duration_code'
+  );
+  const totalPrice = getBookingField(booking, 'totalPrice', 'total_price');
+  const status = getBookingField(booking, 'status', 'status');
+  const updatedAt = getBookingField(booking, 'updatedAt', 'updated_at');
+
+  return {
+    to: getUserEmail(user),
+    subject: `Booking #${bookingId} completed`,
+    text: [
+      `Hello ${fullName},`,
+      '',
+      'Your booking has been completed.',
+      '',
+      `Booking ID: #${bookingId}`,
+      `Scooter: ${scooterId}`,
+      `Duration: ${formatDuration(durationCode)}`,
+      `Total price: ${formatCurrency(totalPrice)}`,
+      `Status: ${status || 'completed'}`,
+      `Completed at: ${formatTimestamp(updatedAt)}`,
+      '',
+      `Thank you for using ${PLATFORM_NAME}.`,
+    ].join('\n'),
+  };
+}
+
+async function sendMailBestEffort(
+  mail,
+  {
+    env = process.env,
+    createTransport = nodemailer.createTransport,
+    logger = console,
+  } = {}
+) {
+  const config = buildSmtpConfig(env);
+
+  if (!config.enabled) {
+    return { skipped: true, reason: 'smtp_not_configured' };
+  }
+
+  if (!mail || !cleanText(mail.to) || !cleanText(mail.subject)) {
+    return { skipped: true, reason: 'invalid_message' };
+  }
 
   try {
-    await smtpSend({
-      to: user.email,
-      subject: `Booking confirmed — ${scooterLabel} (${planLabel})`,
-      text:
-        `Hi ${user.full_name || 'Customer'},\n\n` +
-        `Your booking has been confirmed.\n\n` +
-        `  Scooter:      ${scooterLabel}\n` +
-        `  Plan:         ${planLabel}\n` +
-        `  Total price:  £${(booking.total_price ?? 0).toFixed(2)}\n` +
-        `  Status:       ${booking.status || 'active'}\n\n` +
-        `View your bookings at any time from the My Bookings page.\n\n` +
-        `E-Scooter Hire`,
+    const transporter = createTransport(config.transport);
+    await transporter.sendMail({
+      ...mail,
+      from: mail.from || config.from,
     });
+
+    return { sent: true };
   } catch (error) {
-    console.error(
-      'Email: failed to send booking confirmation:',
-      error.message
-    );
-    // Never throw — email failure must not affect the HTTP response.
+    logger.error('Email notification failed:', error);
+    return { sent: false, error };
   }
+}
+
+async function sendRegistrationEmail(user, options) {
+  return sendMailBestEffort(buildRegistrationEmail(user), options);
+}
+
+async function sendBookingConfirmationEmail({ user, booking }, options) {
+  return sendMailBestEffort(
+    buildBookingConfirmationEmail({ user, booking }),
+    options
+  );
+}
+
+async function sendBookingCompletedEmail({ user, booking }, options) {
+  return sendMailBestEffort(
+    buildBookingCompletedEmail({ user, booking }),
+    options
+  );
 }
 
 module.exports = {
+  buildBookingCompletedEmail,
+  buildBookingConfirmationEmail,
+  buildRegistrationEmail,
+  buildSmtpConfig,
   emailEnabled,
-  sendBookingConfirmation,
+  sendBookingCompletedEmail,
+  sendBookingConfirmationEmail,
+  sendMailBestEffort,
+  sendRegistrationEmail,
 };

@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const { app } = require('./app');
 const { emailEnabled } = require('./email-service');
 
@@ -8,8 +10,8 @@ app.listen(port, () => {
 
   if (!emailEnabled()) {
     console.warn(
-      'Email notifications are disabled. Set SMTP_HOST to enable ' +
-        '(see .env.example for available SMTP variables).'
+      'Email notifications are disabled. Set SMTP_USER+SMTP_PASS or SMTP_HOST ' +
+        '(Mailpit) — see .env.example.'
     );
   }
 });

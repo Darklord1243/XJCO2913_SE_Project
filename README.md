@@ -59,6 +59,25 @@ need this step.
 Implemented endpoint:
 - `GET /api/scooters`
 
+### Optional email notifications
+
+The backend can send SMTP email notifications after successful user
+registration, booking confirmation, and booking completion/cancellation.
+Email is optional: if SMTP credentials are not configured, the app logs
+nothing and continues normally.
+
+For local development, copy `.env.example` to `.env` and fill in your
+own SMTP authorization code:
+
+```bash
+SMTP_USER=2833085151@qq.com
+SMTP_PASS=your_qq_smtp_authorization_code
+SMTP_FROM="E-Scooter Rental Platform <2833085151@qq.com>"
+```
+
+Defaults target QQ Mail SMTP (`smtp.qq.com`, port `465`, secure TLS).
+Never commit a real `.env` file or SMTP authorization code.
+
 Expected response format:
 ```json
 {

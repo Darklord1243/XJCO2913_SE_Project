@@ -134,49 +134,31 @@ describe('HTTP integration: bookings + income RBAC', () => {
     assert.match(res.body.error || '', /not available/i);
   });
 
-  test('sendBookingConfirmation does not throw on SMTP error; booking HTTP 201 is unaffected', async () => {
-    // Prove the fire-and-forget guarantee in two steps:
-    // (a) Reload email-service with an unreachable SMTP server and call
-    //     sendBookingConfirmation directly — it must not throw.
-    // (b) Create a booking via HTTP — still returns 201 (the Express app
-    //     uses the originally-loaded disabled email-service, which is the
-    //     typical test/CI configuration where SMTP_HOST is unset).
-    const prevHost = process.env.SMTP_HOST;
-    const prevPort = process.env.SMTP_PORT;
-    process.env.SMTP_HOST = '127.0.0.1';
-    process.env.SMTP_PORT = '19999';
+  test('sendMailBestEffort does not throw on transport error; booking HTTP 201 is unaffected', async () => {
+    const { sendMailBestEffort } = require('../../src/backend/email-service');
 
-    // Reload email-service to pick up the new env
-    const emailServicePath = require.resolve(
-      '../../src/backend/email-service'
-    );
-    delete require.cache[emailServicePath];
-    const {
-      sendBookingConfirmation,
-      emailEnabled,
-    } = require('../../src/backend/email-service');
-
-    assert.equal(emailEnabled(), true);
-
-    // Must not throw even though no SMTP server is listening
-    await sendBookingConfirmation(
+    const result = await sendMailBestEffort(
       {
-        id: 99,
-        scooter_id: 'ESC-001',
-        duration_code: 'oneHour',
-        total_price: 5.5,
-        status: 'active',
+        to: 'rider@test.local',
+        subject: 'Test',
+        text: 'Test body',
       },
       {
-        id: 1,
-        full_name: 'Test Rider',
-        email: 'rider@test.local',
-        user_type: 'standard',
-      },
-      { scooter_id: 'ESC-001', status: 'available' }
+        env: {
+          SMTP_USER: 'user@test.local',
+          SMTP_PASS: 'secret',
+        },
+        createTransport: () => ({
+          sendMail: async () => {
+            throw new Error('ECONNREFUSED');
+          },
+        }),
+      }
     );
 
-    // HTTP booking still returns 201 (email path is independent)
+    assert.equal(result.sent, false);
+
+    // HTTP booking still returns 201 (email failure is fire-and-forget)
     const res = await request(app)
       .post('/api/bookings')
       .set(authHeader(tokens.rider))
@@ -194,13 +176,6 @@ describe('HTTP integration: bookings + income RBAC', () => {
       .patch(`/api/bookings/${res.body.data.bookingId}/cancel`)
       .set(authHeader(tokens.rider));
     assert.equal(cancelRes.status, 200);
-
-    // Cleanup: restore env and module cache
-    process.env.SMTP_HOST = prevHost;
-    process.env.SMTP_PORT = prevPort;
-    delete require.cache[emailServicePath];
-    // Reload email-service so subsequent tests get the original (disabled) state
-    require('../../src/backend/email-service');
   });
 
   // -------------------------------------------------------------------------
