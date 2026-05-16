@@ -495,36 +495,28 @@ they are now exposed as non-rendered `data-id` attributes instead, so
 automated test selectors can still find them without polluting the
 visual output.
 
-### Visual redesign (in progress)
+### Visual redesign (complete)
 
-A token-driven visual redesign is now underway on branch
-`feature/ui-redesign`, broken into atomic phases so behavior, routes,
-and tests remain untouched. Completed so far:
+Branch `feature/ui-redesign` delivers a token-driven UI built in atomic phases (0–10) without changing routes, API contracts, or test count.
 
-- **Design tokens (Phase 0)** — `src/frontend/styles/tokens.css` and
-  `styles/base.css` define a full token system (Manrope font, type and
-  spacing scales, radius, motion, shadows) plus a hybrid palette
-  (slate + emerald for customer, neutral slate + indigo for admin).
-  Backed by `src/frontend/utils/theme.js` which persists the chosen
-  theme in `localStorage` and falls back to `prefers-color-scheme`.
-- **Layout shell + dark mode (Phase 1)** — `src/frontend/components/Layout.jsx`,
-  `components/ThemeToggle.jsx`, `hooks/useTheme.js`, and
-  `styles/components/layout.css` deliver a sticky top navigation with
-  brand mark, role pill, theme toggle (Moon/Sun via `lucide-react`),
-  and a hamburger drawer for narrow viewports. Admin sessions get a
-  dark slate nav with an indigo accent via `body[data-area="admin"]`.
+**Foundation**
+- `styles/tokens.css`, `styles/base.css`, `utils/theme.js` — spacing, type, radius, motion, shadows; customer emerald + admin indigo palettes; dark mode via `data-theme` and `localStorage` (`escooter.theme`).
+- `styles/components/atoms.css` — shared `.btn`, `.input`, `.field`, `.alert`, `.skeleton`, `.sr-only`.
 
-User-visible features added in this work:
+**Shell & screens**
+- Layout: `layout.css`, `Layout.jsx`, `ThemeToggle.jsx` — sticky nav, role pill, mobile drawer, `body[data-area="admin"]`.
+- Customer: `auth.css`, `map.css`, `fleet.css`, `bookings.css` — auth split-screen, map, fleet/booking modal, bookings/cards/issues.
+- Admin: `admin.css`, `income.css` — bookings table, walk-in modal, fleet CRUD, issue triage, income dashboard with themed recharts.
 
-- **Dark mode** — auto-detects your system preference on first visit;
-  toggle in the top nav (Moon/Sun icon); persisted across sessions via
-  `localStorage` under key `escooter.theme`.
+**Polish (Phase 9–10)**
+- Loading skeletons and icon empty states on list screens.
+- Focus-visible and reduced-motion overrides; `<noscript>` fallback in `index.html`.
+- Legacy rules removed from `styles.css`; component CSS is the single source of truth per screen.
 
-Per-screen redesigns (auth landing, customer fleet/map/bookings,
-admin tables, income dashboard, polish) are scheduled as subsequent
-atomic phases. Each phase keeps the old CSS rules in place as dead
-code until the final sweep, so any individual phase can be reverted
-without disturbing untouched screens.
+**Demo notes**
+- Payments are simulated (dev test card numbers in booking modal when using manual entry).
+- Walk-in bookings are staff/admin-only: Admin → Bookings → **Book Walk-in** (`POST /api/admin/bookings`), not customer registration.
+- Student/senior discounts use account type chosen at registration; frequent-user discount applies after 8+ hire hours in 7 days (server-side).
 
 ## Testing
 

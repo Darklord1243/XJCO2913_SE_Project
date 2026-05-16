@@ -311,13 +311,13 @@
   color: var(--accent);
 }
 
-.fleet-card-grid {
+.admin-shell .fleet-card-grid {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.fleet-card {
+.admin-shell .fleet-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -330,23 +330,23 @@
     border-color var(--motion-fast) var(--easing-out);
 }
 
-.fleet-card:hover {
+.admin-shell .fleet-card:hover {
   box-shadow: var(--shadow-sm);
 }
 
-.fleet-card.is-retired {
+.admin-shell .fleet-card.is-retired {
   opacity: 0.72;
   border-style: dashed;
 }
 
-.fleet-card__header {
+.admin-shell .fleet-card__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
-.fleet-card__id {
+.admin-shell .fleet-card__id {
   margin: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: var(--text-md);
@@ -354,7 +354,7 @@
   color: var(--text);
 }
 
-.fleet-card__label {
+.admin-shell .fleet-card__label {
   margin: 0;
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
@@ -363,13 +363,13 @@
   letter-spacing: 0.04em;
 }
 
-.fleet-card__meta {
+.admin-shell .fleet-card__meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--space-3);
 }
 
-.fleet-card__stat {
+.admin-shell .fleet-card__stat {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -378,26 +378,26 @@
   border-radius: var(--radius-sm);
 }
 
-.fleet-card__stat-value {
+.admin-shell .fleet-card__stat-value {
   margin: 0;
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--text);
 }
 
-.fleet-card__stat-sub {
+.admin-shell .fleet-card__stat-sub {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
-.fleet-card__actions {
+.admin-shell .fleet-card__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
 
-.crud-form {
+.admin-shell .crud-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -408,24 +408,24 @@
   border-radius: var(--radius-md);
 }
 
-.crud-form__title {
+.admin-shell .crud-form__title {
   margin: 0;
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--text);
 }
 
-.crud-form__grid {
+.admin-shell .crud-form__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
 }
 
-.crud-form__grid--full {
+.admin-shell .crud-form__grid--full {
   grid-template-columns: 1fr;
 }
 
-.crud-form__actions {
+.admin-shell .crud-form__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -435,7 +435,7 @@
 }
 
 @media (max-width: 720px) {
-  .crud-form__grid {
+  .admin-shell .crud-form__grid {
     grid-template-columns: 1fr;
   }
 }
