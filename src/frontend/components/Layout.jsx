@@ -1,4 +1,7 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { LogOut, Menu, X, Zap } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 import { getRoleLabel, isAdminSession } from '../roles';
 
 const CUSTOMER_NAV_ITEMS = [
@@ -20,13 +23,30 @@ export default function Layout({ session, onLogout }) {
   const isAdmin = isAdminSession(session);
   const navItems = isAdmin ? ADMIN_NAV_ITEMS : CUSTOMER_NAV_ITEMS;
   const roleLabel = getRoleLabel(session);
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const previous = document.body.getAttribute('data-area');
+    document.body.setAttribute('data-area', isAdmin ? 'admin' : 'customer');
+    return () => {
+      if (previous === null) {
+        document.body.removeAttribute('data-area');
+      } else {
+        document.body.setAttribute('data-area', previous);
+      }
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   function handleLogout() {
     if (typeof onLogout !== 'function') {
       console.warn('Layout: onLogout handler is missing or not a function.');
       return;
     }
-
     try {
       onLogout();
     } catch (error) {
@@ -34,46 +54,86 @@ export default function Layout({ session, onLogout }) {
     }
   }
 
+  function toggleMenu() {
+    setMenuOpen((open) => !open);
+  }
+
   return (
-    <div className="layout-root">
+    <div className="shell-root">
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
       <header>
         <nav
-          className={`app-nav${isAdmin ? ' app-nav--admin' : ''}`}
+          className="nav"
           aria-label="Main"
         >
-          <div className="app-nav__inner">
-            <div className="app-nav__brand" aria-hidden="true">
-              <span className="app-nav__brand-name">E-Scooter Hire</span>
-              <span className="app-nav__brand-mode">{roleLabel}</span>
+          <div className="nav__inner">
+            <div className="nav__brand">
+              <span className="nav__brand-mark" aria-hidden="true">
+                <Zap size={18} />
+              </span>
+              <span className="nav__brand-name">E-Scooter Hire</span>
+              <span className="nav__role" aria-label={`Logged in as ${roleLabel}`}>{roleLabel}</span>
             </div>
-            <div className="app-nav__links">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `app-nav__link${isActive ? ' app-nav__link--active' : ''}`
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
+            <div className="nav__center">
+              <div className="nav__links">
+                {navItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `nav__link${isActive ? ' is-active' : ''}`
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
             </div>
-            <button
-              type="button"
-              className="app-nav__logout secondary"
-              onClick={handleLogout}
-              aria-label="Log out of your account"
-            >
-              Logout
-            </button>
+            <div className="nav__actions">
+              <ThemeToggle />
+              <button
+                type="button"
+                className="nav__menu-toggle nav__icon-btn"
+                onClick={toggleMenu}
+                aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-expanded={menuOpen}
+                aria-controls="nav-drawer"
+              >
+                {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
+              </button>
+              <button
+                type="button"
+                className="nav__logout"
+                onClick={handleLogout}
+                aria-label="Log out of your account"
+              >
+                <LogOut size={16} aria-hidden="true" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+          <div
+            id="nav-drawer"
+            className={`nav__drawer${menuOpen ? ' is-open' : ''}`}
+            hidden={!menuOpen}
+          >
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `nav__drawer-link${isActive ? ' is-active' : ''}`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
           </div>
         </nav>
       </header>
-      <main id="main-content" tabIndex={-1} className="layout-outlet">
+      <main id="main-content" tabIndex={-1} className="shell-main">
         <Outlet />
       </main>
     </div>
