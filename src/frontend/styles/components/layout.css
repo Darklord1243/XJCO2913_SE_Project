@@ -250,6 +250,14 @@ body[data-area="admin"] .nav__drawer-link:hover {
   padding: var(--space-8) var(--space-6) var(--space-10);
 }
 
+.nav__link:focus-visible,
+.nav__drawer-link:focus-visible,
+.nav__icon-btn:focus-visible,
+.nav__menu-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* Mobile breakpoint */
 @media (max-width: 720px) {
   .nav__inner {

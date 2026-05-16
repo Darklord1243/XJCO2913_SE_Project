@@ -106,7 +106,13 @@ export default function ReportIssue({ session }) {
           <div className="page-header">
             <h2 className="page-title">Report a problem</h2>
           </div>
-          <p className="page-loading">Loading scooter list...</p>
+          <div className="skeleton-stack">
+            <div className="skeleton skeleton--title" aria-hidden="true" />
+            <div className="skeleton skeleton--text" aria-hidden="true" />
+            <div className="skeleton skeleton--text" aria-hidden="true" />
+            <div className="skeleton skeleton--row" aria-hidden="true" />
+          </div>
+          <span className="sr-only">Loading scooter list</span>
         </article>
       </section>
     );

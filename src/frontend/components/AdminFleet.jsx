@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive, MapPin, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { Archive, Bike, MapPin, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { useAdminScooters } from '../hooks/useAdminScooters';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
@@ -621,7 +621,14 @@ export default function AdminFleet({ session }) {
         ) : null}
 
         {isLoading ? (
-          <p className="admin-loading">Loading fleet...</p>
+          <>
+            <div className="skeleton-stack">
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+            </div>
+            <span className="sr-only">Loading fleet</span>
+          </>
         ) : error ? (
           <>
             <div className="alert alert--error" role="alert">
@@ -637,7 +644,13 @@ export default function AdminFleet({ session }) {
             </button>
           </>
         ) : scooters.length === 0 ? (
-          <p className="admin-empty">No scooters configured yet.</p>
+          <div className="admin-empty-state">
+            <Bike size={48} className="admin-empty-state__icon" aria-hidden="true" />
+            <p className="admin-empty-state__title">No scooters configured yet</p>
+            <p className="admin-empty-state__sub">
+              Add a scooter to populate the fleet.
+            </p>
+          </div>
         ) : (
           <div className="fleet-card-grid">
             {scooters.map((scooter) => {

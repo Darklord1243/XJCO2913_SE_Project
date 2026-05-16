@@ -170,7 +170,12 @@ export default function MyBookings({ session, refreshKey }) {
           <div className="page-header">
             <h2 className="page-title">My bookings</h2>
           </div>
-          <p className="page-loading">Loading booking history...</p>
+          <div className="skeleton-stack">
+            <div className="skeleton skeleton--row" aria-hidden="true" />
+            <div className="skeleton skeleton--row" aria-hidden="true" />
+            <div className="skeleton skeleton--row" aria-hidden="true" />
+          </div>
+          <span className="sr-only">Loading booking history</span>
         </article>
       </section>
     );

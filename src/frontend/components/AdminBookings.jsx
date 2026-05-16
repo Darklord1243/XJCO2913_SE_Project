@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Lock, Plus, RotateCcw, X } from 'lucide-react';
+import { Calendar, Inbox, Lock, Plus, RotateCcw, X } from 'lucide-react';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
@@ -379,13 +379,31 @@ export default function AdminBookings({ session }) {
         </div>
 
         {isLoading ? (
-          <p className="admin-loading">Loading bookings overview...</p>
+          <>
+            <div className="admin-skeleton-kpi">
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+            </div>
+            <div className="admin-skeleton-table">
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+            </div>
+            <span className="sr-only">Loading bookings</span>
+          </>
         ) : error ? (
           <div className="alert alert--error" role="alert">
             {error}
           </div>
         ) : bookings.length === 0 ? (
-          <p className="admin-empty">No bookings match the current filters.</p>
+          <div className="admin-empty-state">
+            <Inbox size={48} className="admin-empty-state__icon" aria-hidden="true" />
+            <p className="admin-empty-state__title">No bookings match the current filters</p>
+            <p className="admin-empty-state__sub">Try clearing status or scooter filters.</p>
+          </div>
         ) : (
           <div className="admin-table-wrap">
             <table className="data-table">

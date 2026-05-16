@@ -280,15 +280,13 @@ export default function ScooterList({ session, onBookingCreated }) {
       <section className="fleet-page" aria-live="polite">
         <section className="fleet-layout">
           <article className="fleet-card fleet-card--accent">
-            <div className="fleet-summary">
-              <div className="fleet-stat">
-                <p className="fleet-stat__label">Status</p>
-                <p className="fleet-stat__value">Loading pricing...</p>
-              </div>
+            <div className="skeleton-grid">
+              <div className="skeleton skeleton--card" aria-hidden="true" />
+              <div className="skeleton skeleton--card" aria-hidden="true" />
+              <div className="skeleton skeleton--card" aria-hidden="true" />
+              <div className="skeleton skeleton--card" aria-hidden="true" />
             </div>
-          </article>
-          <article className="fleet-card">
-            <p className="fleet-loading">Loading scooters...</p>
+            <span className="sr-only">Loading scooters</span>
           </article>
         </section>
       </section>
@@ -332,9 +330,13 @@ export default function ScooterList({ session, onBookingCreated }) {
             <div className="fleet-card__header">
               <h2 className="fleet-card__title">Pricing and fleet availability</h2>
             </div>
-            <p className="fleet-empty">
-              No scooters are configured for hire pricing yet.
-            </p>
+            <div className="page-empty-state">
+              <MapPin size={48} className="page-empty-state__icon" aria-hidden="true" />
+              <p className="page-empty-state__title">No scooters available</p>
+              <p className="page-empty-state__sub">
+                No scooters are configured for hire pricing yet.
+              </p>
+            </div>
           </article>
         </section>
       </section>

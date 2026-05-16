@@ -2,12 +2,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
+  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  BarChart3,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { getSessionToken } from '../session';
+import { useTheme } from '../hooks/useTheme';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
@@ -19,6 +27,39 @@ const PLAN_CONFIG = [
   { key: 'oneDay', label: '1 Day' },
   { key: 'oneWeek', label: '1 Week' },
 ];
+
+function readCssToken(name) {
+  if (typeof document === 'undefined') {
+    return '';
+  }
+
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+}
+
+function useChartTheme() {
+  const { theme } = useTheme();
+  const [chartTheme, setChartTheme] = useState({
+    accent: '',
+    accentStrong: '',
+    textMuted: '',
+    border: '',
+    accentSoft: '',
+  });
+
+  useEffect(() => {
+    setChartTheme({
+      accent: readCssToken('--accent'),
+      accentStrong: readCssToken('--accent-strong'),
+      textMuted: readCssToken('--text-muted'),
+      border: readCssToken('--border'),
+      accentSoft: readCssToken('--accent-soft'),
+    });
+  }, [theme]);
+
+  return chartTheme;
+}
 
 function formatWeekLabel(dateStr) {
   if (!dateStr) {
@@ -107,7 +148,7 @@ function DailyChartTooltip({ active, payload }) {
       <p className="income-chart__tooltip-value">{formatCurrency(income)}</p>
       <p className="income-chart__tooltip-meta">
         {PLAN_CONFIG.map((p) => (
-          <span key={p.key} style={{ display: 'block' }}>
+          <span key={p.key} className="income-chart__tooltip-line">
             {p.label}: {formatCurrency(bk[p.key] ?? 0)}
           </span>
         ))}
@@ -124,6 +165,7 @@ export default function Income({ session }) {
   const [viewMode, setViewMode] = useState('plan'); // 'plan' | 'day'
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const chartTheme = useChartTheme();
 
   const fetchIncome = useCallback(
     async (signal) => {
@@ -197,13 +239,15 @@ export default function Income({ session }) {
 
   if (!token) {
     return (
-      <section className="income-view">
-        <article className="panel panel-accent panel-wide" data-id="ID19">
-          <div className="panel-header">
-            <p className="panel-kicker">Admin</p>
-            <h2>Weekly income</h2>
+      <section className="admin-shell">
+        <article className="admin-card admin-card--accent" data-id="ID19">
+          <div className="admin-header">
+            <div className="admin-header__text">
+              <p className="admin-kicker">Admin</p>
+              <h2 className="admin-title">Weekly income</h2>
+            </div>
           </div>
-          <p className="empty-state">
+          <p className="admin-empty">
             Sign in as an administrator to view revenue analytics.
           </p>
         </article>
@@ -212,73 +256,88 @@ export default function Income({ session }) {
   }
 
   return (
-    <section className="income-view">
-      <article className="panel panel-accent panel-wide" data-id="ID19">
-        <div className="panel-header panel-header--row">
-          <div>
-            <p className="panel-kicker">Admin</p>
-            <h2>Weekly income by rental option</h2>
+    <section className="admin-shell">
+      <article className="admin-card admin-card--accent" data-id="ID19">
+        <div className="admin-header">
+          <div className="admin-header__text">
+            <p className="admin-kicker">Admin</p>
+            <h2 className="admin-title">Weekly income by rental option</h2>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="income-segmented" role="group" aria-label="Chart view">
             <button
               type="button"
-              className={viewMode === 'plan' ? '' : 'secondary'}
+              className={`income-segmented__btn${viewMode === 'plan' ? ' is-active' : ''}`}
               onClick={() => setViewMode('plan')}
               aria-pressed={viewMode === 'plan'}
             >
+              <BarChart3 size={14} aria-hidden="true" />
               By Plan
             </button>
             <button
               type="button"
-              className={viewMode === 'day' ? '' : 'secondary'}
+              className={`income-segmented__btn${viewMode === 'day' ? ' is-active' : ''}`}
               onClick={() => setViewMode('day')}
               aria-pressed={viewMode === 'day'}
             >
+              <CalendarDays size={14} aria-hidden="true" />
               By Day
             </button>
           </div>
         </div>
 
-        <div className="week-navigator">
+        <div className="income-week-nav">
           <button
             type="button"
-            className="secondary"
+            className="btn btn--secondary"
             aria-label={`View income for previous week before ${formatWeekLabel(weekStart)}`}
             onClick={() => setWeekStart((ws) => shiftWeek(ws, -1))}
           >
-            ← Previous
+            <ChevronLeft size={14} aria-hidden="true" />
+            Previous
           </button>
-          <span className="week-navigator__label">
+          <p className="income-week-nav__label">
             Week of {formatWeekLabel(weekStart)}
-          </span>
+          </p>
           <button
             type="button"
-            className="secondary"
+            className="btn btn--secondary"
             aria-label={`View income for next week after ${formatWeekLabel(weekStart)}`}
             onClick={() => setWeekStart((ws) => shiftWeek(ws, 1))}
           >
-            Next →
+            Next
+            <ChevronRight size={14} aria-hidden="true" />
           </button>
         </div>
 
         {isLoading ? (
-          <p className="empty-state">Loading income data...</p>
+          <>
+            <div className="admin-skeleton-kpi">
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+            </div>
+            <div className="income-chart-skeleton">
+              <div className="skeleton skeleton--map" aria-hidden="true" />
+            </div>
+            <span className="sr-only">Loading income data</span>
+          </>
         ) : error ? (
-          <p className="message" data-state="error" role="alert">
+          <div className="alert alert--error" role="alert">
             {error}
-          </p>
+          </div>
         ) : data ? (
           <>
             {viewMode === 'plan' ? (
-              <div className="income-grid" role="list">
+              <div className="kpi-grid" role="list">
                 {PLAN_CONFIG.map((plan) => (
-                  <div key={plan.key} className="income-card" role="listitem">
-                    <p className="income-card__label">{plan.label}</p>
-                    <p className="income-card__value">
+                  <div key={plan.key} className="kpi-card" role="listitem">
+                    <p className="kpi-card__label">{plan.label}</p>
+                    <p className="kpi-card__value">
                       {formatCurrency(data.income?.[plan.key] ?? 0)}
                     </p>
-                    <p className="income-card__meta">
+                    <p className="kpi-card__meta">
                       {data.counts?.[plan.key] ?? 0} booking
                       {(data.counts?.[plan.key] ?? 0) === 1 ? '' : 's'}
                     </p>
@@ -302,21 +361,26 @@ export default function Income({ session }) {
                       data={chartData}
                       margin={{ top: 16, right: 16, bottom: 8, left: 8 }}
                     >
+                      <CartesianGrid
+                        stroke={chartTheme.border || 'currentColor'}
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
                       <XAxis
                         dataKey="plan"
-                        tick={{ fontSize: 12, fill: 'var(--muted)' }}
+                        tick={{ fontSize: 12, fill: chartTheme.textMuted }}
                         tickLine={false}
-                        axisLine={{ stroke: 'rgba(15, 118, 110, 0.2)' }}
+                        axisLine={{ stroke: chartTheme.border }}
                       />
                       <YAxis
                         tickFormatter={formatAxisCurrency}
-                        tick={{ fontSize: 12, fill: 'var(--muted)' }}
+                        tick={{ fontSize: 12, fill: chartTheme.textMuted }}
                         tickLine={false}
-                        axisLine={{ stroke: 'rgba(15, 118, 110, 0.2)' }}
+                        axisLine={{ stroke: chartTheme.border }}
                         width={64}
                       />
                       <Tooltip
-                        cursor={{ fill: 'rgba(15, 118, 110, 0.08)' }}
+                        cursor={{ fill: chartTheme.accentSoft }}
                         content={
                           viewMode === 'day' ? (
                             <DailyChartTooltip />
@@ -328,7 +392,7 @@ export default function Income({ session }) {
                       <Bar
                         dataKey="income"
                         name="Income"
-                        fill="var(--accent-strong, #0f766e)"
+                        fill={chartTheme.accentStrong || chartTheme.accent}
                         radius={[6, 6, 0, 0]}
                         maxBarSize={72}
                       />
@@ -338,9 +402,9 @@ export default function Income({ session }) {
               </figure>
             ) : null}
 
-            <div className="income-total">
-              <p className="summary-label">Grand total</p>
-              <p className="summary-value income-total__value">
+            <div className="income-grand-total">
+              <p className="income-grand-total__label">Grand total</p>
+              <p className="income-grand-total__value">
                 {formatCurrency(
                   viewMode === 'day'
                     ? (dailyData?.grandTotal ?? 0)
