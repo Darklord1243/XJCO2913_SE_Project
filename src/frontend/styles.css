@@ -4,6 +4,7 @@
 @import url('./styles/components/layout.css');
 @import url('./styles/components/auth.css');
 @import url('./styles/components/map.css');
+@import url('./styles/components/fleet.css');
 
 :root {
   color-scheme: light;
