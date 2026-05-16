@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Archive, MapPin, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { useAdminScooters } from '../hooks/useAdminScooters';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
@@ -350,12 +351,14 @@ export default function AdminFleet({ session }) {
 
   if (!token) {
     return (
-      <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide">
-          <div className="panel-header">
-            <h2>Fleet management</h2>
+      <section className="admin-shell">
+        <article className="admin-card admin-card--accent">
+          <div className="admin-header">
+            <div className="admin-header__text">
+              <h2 className="admin-title">Fleet management</h2>
+            </div>
           </div>
-          <p className="empty-state">
+          <p className="admin-empty">
             Sign in as an administrator to manage the fleet.
           </p>
         </article>
@@ -364,15 +367,20 @@ export default function AdminFleet({ session }) {
   }
 
   return (
-    <section className="my-bookings-view">
-      <article className="panel panel-accent panel-wide">
-        <div className="panel-header panel-header--row">
-          <div>
-            <p className="panel-kicker">Admin</p>
-            <h2>Fleet management</h2>
+    <section className="admin-shell">
+      <article className="admin-card admin-card--accent">
+        <div className="admin-header">
+          <div className="admin-header__text">
+            <p className="admin-kicker">Admin</p>
+            <h2 className="admin-title">Fleet management</h2>
           </div>
           {!isCreateOpen ? (
-            <button type="button" onClick={openCreateForm}>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={openCreateForm}
+            >
+              <Plus size={16} aria-hidden="true" />
               Add scooter
             </button>
           ) : null}
@@ -380,15 +388,19 @@ export default function AdminFleet({ session }) {
 
         {isCreateOpen ? (
           <form
-            className="form-grid admin-fleet-create"
+            className="crud-form"
             onSubmit={handleCreateSubmit}
             aria-label="Add a scooter to the fleet"
           >
-            <p className="summary-label">New scooter</p>
+            <h3 className="crud-form__title">New scooter</h3>
 
-            <label>
-              Scooter ID
+            <div className="field">
+              <label className="field__label" htmlFor="create-scooter-id">
+                Scooter ID
+              </label>
               <input
+                className="input"
+                id="create-scooter-id"
                 type="text"
                 value={createState.scooterId}
                 onChange={(event) =>
@@ -402,11 +414,15 @@ export default function AdminFleet({ session }) {
                 pattern="[A-Za-z0-9-]{4,20}"
                 title="4-20 characters, letters, numbers, or hyphens"
               />
-            </label>
+            </div>
 
-            <label>
-              Status
+            <div className="field">
+              <label className="field__label" htmlFor="create-status">
+                Status
+              </label>
               <select
+                className="input"
+                id="create-status"
                 value={createState.status}
                 onChange={(event) =>
                   setCreateState((current) => ({
@@ -421,11 +437,15 @@ export default function AdminFleet({ session }) {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
 
-            <label>
-              Location description
+            <div className="field">
+              <label className="field__label" htmlFor="create-description">
+                Location description
+              </label>
               <input
+                className="input"
+                id="create-description"
                 type="text"
                 value={createState.description}
                 onChange={(event) =>
@@ -437,12 +457,16 @@ export default function AdminFleet({ session }) {
                 placeholder="City Centre Square"
                 required
               />
-            </label>
+            </div>
 
-            <div className="payment-grid">
-              <label>
-                Latitude
+            <div className="crud-form__grid">
+              <div className="field">
+                <label className="field__label" htmlFor="create-latitude">
+                  Latitude
+                </label>
                 <input
+                  className="input"
+                  id="create-latitude"
                   type="number"
                   step="any"
                   min="-90"
@@ -456,10 +480,14 @@ export default function AdminFleet({ session }) {
                   }
                   required
                 />
-              </label>
-              <label>
-                Longitude
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="create-longitude">
+                  Longitude
+                </label>
                 <input
+                  className="input"
+                  id="create-longitude"
                   type="number"
                   step="any"
                   min="-180"
@@ -473,13 +501,17 @@ export default function AdminFleet({ session }) {
                   }
                   required
                 />
-              </label>
+              </div>
             </div>
 
-            <div className="payment-grid">
-              <label>
-                1 hour price (£)
+            <div className="crud-form__grid">
+              <div className="field">
+                <label className="field__label" htmlFor="create-one-hour">
+                  1 hour price (£)
+                </label>
                 <input
+                  className="input"
+                  id="create-one-hour"
                   type="number"
                   step="0.01"
                   min="0"
@@ -492,10 +524,14 @@ export default function AdminFleet({ session }) {
                   }
                   required
                 />
-              </label>
-              <label>
-                4 hours price (£)
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="create-four-hours">
+                  4 hours price (£)
+                </label>
                 <input
+                  className="input"
+                  id="create-four-hours"
                   type="number"
                   step="0.01"
                   min="0"
@@ -508,13 +544,17 @@ export default function AdminFleet({ session }) {
                   }
                   required
                 />
-              </label>
+              </div>
             </div>
 
-            <div className="payment-grid">
-              <label>
-                1 day price (£)
+            <div className="crud-form__grid">
+              <div className="field">
+                <label className="field__label" htmlFor="create-one-day">
+                  1 day price (£)
+                </label>
                 <input
+                  className="input"
+                  id="create-one-day"
                   type="number"
                   step="0.01"
                   min="0"
@@ -527,10 +567,14 @@ export default function AdminFleet({ session }) {
                   }
                   required
                 />
-              </label>
-              <label>
-                1 week price (£)
+              </div>
+              <div className="field">
+                <label className="field__label" htmlFor="create-one-week">
+                  1 week price (£)
+                </label>
                 <input
+                  className="input"
+                  id="create-one-week"
                   type="number"
                   step="0.01"
                   min="0"
@@ -543,19 +587,23 @@ export default function AdminFleet({ session }) {
                   }
                   required
                 />
-              </label>
+              </div>
             </div>
 
-            <div className="modal-actions">
+            <div className="crud-form__actions">
               <button
                 type="button"
-                className="secondary"
+                className="btn btn--secondary"
                 onClick={closeCreateForm}
                 disabled={isCreating}
               >
                 Cancel
               </button>
-              <button type="submit" disabled={isCreating}>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={isCreating}
+              >
                 {isCreating ? 'Adding...' : 'Add scooter'}
               </button>
             </div>
@@ -563,35 +611,35 @@ export default function AdminFleet({ session }) {
         ) : null}
 
         {actionMessage.text ? (
-          <p
-            className="message"
-            data-state={actionMessage.state || undefined}
+          <div
+            className={`alert ${actionMessage.state === 'error' ? 'alert--error' : 'alert--success'}`}
             role="status"
             aria-live="polite"
           >
             {actionMessage.text}
-          </p>
+          </div>
         ) : null}
 
         {isLoading ? (
-          <p className="empty-state">Loading fleet...</p>
+          <p className="admin-loading">Loading fleet...</p>
         ) : error ? (
           <>
-            <p className="message" data-state="error" role="alert">
+            <div className="alert alert--error" role="alert">
               Could not load scooters: {error}
-            </p>
+            </div>
             <button
               type="button"
-              className="secondary"
+              className="btn btn--secondary"
               onClick={refetchScooters}
             >
+              <RotateCcw size={14} aria-hidden="true" />
               Retry
             </button>
           </>
         ) : scooters.length === 0 ? (
-          <p className="empty-state">No scooters configured yet.</p>
+          <p className="admin-empty">No scooters configured yet.</p>
         ) : (
-          <div className="booking-history" role="list">
+          <div className="fleet-card-grid">
             {scooters.map((scooter) => {
               const isEditingThis =
                 editingId === scooter.scooterId && editState;
@@ -599,13 +647,12 @@ export default function AdminFleet({ session }) {
               return (
                 <article
                   key={scooter.scooterId}
-                  className={`booking-history__item${scooter.status === 'retired' ? ' booking-history__item--retired' : ''}`}
-                  role="listitem"
+                  className={`fleet-card${scooter.status === 'retired' ? ' is-retired' : ''}`}
                 >
-                  <div className="booking-history__header">
+                  <div className="fleet-card__header">
                     <div>
-                      <p className="summary-label">Scooter</p>
-                      <p className="summary-value">{scooter.scooterId}</p>
+                      <p className="fleet-card__label">Scooter</p>
+                      <p className="fleet-card__id">{scooter.scooterId}</p>
                     </div>
                     <span
                       className={`status-pill status-pill--${scooter.status}`}
@@ -615,10 +662,14 @@ export default function AdminFleet({ session }) {
                   </div>
 
                   {isEditingThis ? (
-                    <form className="form-grid" onSubmit={handleSubmit}>
-                      <label>
-                        Status
+                    <form className="crud-form" onSubmit={handleSubmit}>
+                      <div className="field">
+                        <label className="field__label" htmlFor="edit-status">
+                          Status
+                        </label>
                         <select
+                          className="input"
+                          id="edit-status"
                           value={editState.status}
                           onChange={(event) =>
                             setEditState((current) => ({
@@ -633,11 +684,15 @@ export default function AdminFleet({ session }) {
                             </option>
                           ))}
                         </select>
-                      </label>
+                      </div>
 
-                      <label>
-                        Location description
+                      <div className="field">
+                        <label className="field__label" htmlFor="edit-description">
+                          Location description
+                        </label>
                         <input
+                          className="input"
+                          id="edit-description"
                           type="text"
                           value={editState.description}
                           onChange={(event) =>
@@ -648,12 +703,16 @@ export default function AdminFleet({ session }) {
                           }
                           required
                         />
-                      </label>
+                      </div>
 
-                      <div className="payment-grid">
-                        <label>
-                          Latitude
+                      <div className="crud-form__grid">
+                        <div className="field">
+                          <label className="field__label" htmlFor="edit-latitude">
+                            Latitude
+                          </label>
                           <input
+                            className="input"
+                            id="edit-latitude"
                             type="number"
                             step="any"
                             value={editState.latitude}
@@ -665,10 +724,14 @@ export default function AdminFleet({ session }) {
                             }
                             required
                           />
-                        </label>
-                        <label>
-                          Longitude
+                        </div>
+                        <div className="field">
+                          <label className="field__label" htmlFor="edit-longitude">
+                            Longitude
+                          </label>
                           <input
+                            className="input"
+                            id="edit-longitude"
                             type="number"
                             step="any"
                             value={editState.longitude}
@@ -680,13 +743,17 @@ export default function AdminFleet({ session }) {
                             }
                             required
                           />
-                        </label>
+                        </div>
                       </div>
 
-                      <div className="payment-grid">
-                        <label>
-                          1 hour price (£)
+                      <div className="crud-form__grid">
+                        <div className="field">
+                          <label className="field__label" htmlFor="edit-one-hour">
+                            1 hour price (£)
+                          </label>
                           <input
+                            className="input"
+                            id="edit-one-hour"
                             type="number"
                             step="0.01"
                             min="0"
@@ -699,10 +766,14 @@ export default function AdminFleet({ session }) {
                             }
                             required
                           />
-                        </label>
-                        <label>
-                          4 hours price (£)
+                        </div>
+                        <div className="field">
+                          <label className="field__label" htmlFor="edit-four-hours">
+                            4 hours price (£)
+                          </label>
                           <input
+                            className="input"
+                            id="edit-four-hours"
                             type="number"
                             step="0.01"
                             min="0"
@@ -715,13 +786,17 @@ export default function AdminFleet({ session }) {
                             }
                             required
                           />
-                        </label>
+                        </div>
                       </div>
 
-                      <div className="payment-grid">
-                        <label>
-                          1 day price (£)
+                      <div className="crud-form__grid">
+                        <div className="field">
+                          <label className="field__label" htmlFor="edit-one-day">
+                            1 day price (£)
+                          </label>
                           <input
+                            className="input"
+                            id="edit-one-day"
                             type="number"
                             step="0.01"
                             min="0"
@@ -734,10 +809,14 @@ export default function AdminFleet({ session }) {
                             }
                             required
                           />
-                        </label>
-                        <label>
-                          1 week price (£)
+                        </div>
+                        <div className="field">
+                          <label className="field__label" htmlFor="edit-one-week">
+                            1 week price (£)
+                          </label>
                           <input
+                            className="input"
+                            id="edit-one-week"
                             type="number"
                             step="0.01"
                             min="0"
@@ -750,69 +829,76 @@ export default function AdminFleet({ session }) {
                             }
                             required
                           />
-                        </label>
+                        </div>
                       </div>
 
-                      <div className="modal-actions">
+                      <div className="crud-form__actions">
                         <button
                           type="button"
-                          className="secondary"
+                          className="btn btn--secondary"
                           onClick={cancelEdit}
                           disabled={isSaving}
                         >
                           Cancel
                         </button>
-                        <button type="submit" disabled={isSaving}>
+                        <button
+                          type="submit"
+                          className="btn btn--primary"
+                          disabled={isSaving}
+                        >
                           {isSaving ? 'Saving...' : 'Save changes'}
                         </button>
                       </div>
                     </form>
                   ) : (
                     <>
-                      <div className="booking-history__grid">
-                        <div className="summary-card">
-                          <p className="summary-label">Location</p>
-                          <p className="summary-value">
+                      <div className="fleet-card__meta">
+                        <div className="fleet-card__stat">
+                          <p className="fleet-card__label">Location</p>
+                          <p className="fleet-card__stat-value">
                             {scooter.location?.description || 'Unknown'}
                           </p>
-                          <p className="hire-note">
+                          <p className="fleet-card__stat-sub">
+                            <MapPin size={12} aria-hidden="true" />
+                            {' '}
                             {scooter.location?.latitude},{' '}
                             {scooter.location?.longitude}
                           </p>
                         </div>
-                        <div className="summary-card">
-                          <p className="summary-label">1 hour</p>
-                          <p className="summary-value">
+                        <div className="fleet-card__stat">
+                          <p className="fleet-card__label">1 hour</p>
+                          <p className="fleet-card__stat-value">
                             {formatCurrency(scooter.pricing?.oneHour ?? 0)}
                           </p>
                         </div>
-                        <div className="summary-card">
-                          <p className="summary-label">4 hours</p>
-                          <p className="summary-value">
+                        <div className="fleet-card__stat">
+                          <p className="fleet-card__label">4 hours</p>
+                          <p className="fleet-card__stat-value">
                             {formatCurrency(scooter.pricing?.fourHours ?? 0)}
                           </p>
                         </div>
-                        <div className="summary-card">
-                          <p className="summary-label">1 day</p>
-                          <p className="summary-value">
+                        <div className="fleet-card__stat">
+                          <p className="fleet-card__label">1 day</p>
+                          <p className="fleet-card__stat-value">
                             {formatCurrency(scooter.pricing?.oneDay ?? 0)}
                           </p>
                         </div>
-                        <div className="summary-card">
-                          <p className="summary-label">1 week</p>
-                          <p className="summary-value">
+                        <div className="fleet-card__stat">
+                          <p className="fleet-card__label">1 week</p>
+                          <p className="fleet-card__stat-value">
                             {formatCurrency(scooter.pricing?.oneWeek ?? 0)}
                           </p>
                         </div>
                       </div>
-                      <div className="booking-actions booking-actions--fleet">
+                      <div className="fleet-card__actions">
                         {scooter.status !== 'retired' ? (
                           <button
                             type="button"
-                            className="secondary fleet-retire-btn"
+                            className="btn btn--danger"
                             disabled={Boolean(retiringId)}
                             onClick={() => handleRetire(scooter)}
                           >
+                            <Archive size={14} aria-hidden="true" />
                             {retiringId === scooter.scooterId
                               ? 'Retiring…'
                               : 'Retire'}
@@ -821,6 +907,7 @@ export default function AdminFleet({ session }) {
                         {scooter.status === 'retired' ? (
                           <button
                             type="button"
+                            className="btn btn--primary"
                             onClick={() => startReactivate(scooter)}
                           >
                             Re-activate
@@ -828,8 +915,10 @@ export default function AdminFleet({ session }) {
                         ) : (
                           <button
                             type="button"
+                            className="btn btn--secondary"
                             onClick={() => startEdit(scooter)}
                           >
+                            <Pencil size={14} aria-hidden="true" />
                             Edit scooter
                           </button>
                         )}

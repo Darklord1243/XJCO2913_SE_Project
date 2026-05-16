@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, RotateCcw } from 'lucide-react';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 
@@ -154,12 +155,14 @@ export default function AdminIssues({ session }) {
 
   if (!token) {
     return (
-      <section className="my-bookings-view">
-        <article className="panel panel-accent panel-wide">
-          <div className="panel-header">
-            <h2>Issue management</h2>
+      <section className="admin-shell">
+        <article className="admin-card admin-card--accent">
+          <div className="admin-header">
+            <div className="admin-header__text">
+              <h2 className="admin-title">Issue management</h2>
+            </div>
           </div>
-          <p className="empty-state">
+          <p className="admin-empty">
             Sign in as staff or administrator to triage issues.
           </p>
         </article>
@@ -168,17 +171,22 @@ export default function AdminIssues({ session }) {
   }
 
   return (
-    <section className="my-bookings-view">
-      <article className="panel panel-accent panel-wide">
-        <div className="panel-header">
-          <p className="panel-kicker">Admin</p>
-          <h2>Issue management</h2>
+    <section className="admin-shell">
+      <article className="admin-card admin-card--accent">
+        <div className="admin-header">
+          <div className="admin-header__text">
+            <p className="admin-kicker">Admin</p>
+            <h2 className="admin-title">Issue management</h2>
+          </div>
         </div>
 
-        <div className="admin-filter-grid">
-          <label htmlFor="admin-issues-status">
-            Status
+        <div className="admin-filters">
+          <div className="field">
+            <label className="field__label" htmlFor="admin-issues-status">
+              Status
+            </label>
             <select
+              className="input"
               id="admin-issues-status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -189,10 +197,13 @@ export default function AdminIssues({ session }) {
                 </option>
               ))}
             </select>
-          </label>
-          <label htmlFor="admin-issues-priority">
-            Priority
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="admin-issues-priority">
+              Priority
+            </label>
             <select
+              className="input"
               id="admin-issues-priority"
               value={priorityFilter}
               onChange={(event) => setPriorityFilter(event.target.value)}
@@ -203,40 +214,40 @@ export default function AdminIssues({ session }) {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
           <button
             type="button"
-            className="secondary"
+            className="btn btn--ghost"
             onClick={() => {
               setStatusFilter('');
               setPriorityFilter('');
             }}
           >
+            <RotateCcw size={14} aria-hidden="true" />
             Reset filters
           </button>
         </div>
 
         {actionMessage.text ? (
-          <p
-            className="message"
-            data-state={actionMessage.state || undefined}
+          <div
+            className={`alert ${actionMessage.state === 'error' ? 'alert--error' : 'alert--success'}`}
             role="status"
             aria-live="polite"
           >
             {actionMessage.text}
-          </p>
+          </div>
         ) : null}
 
         {isLoading ? (
-          <p className="empty-state">Loading issues...</p>
+          <p className="admin-loading">Loading issues...</p>
         ) : error ? (
-          <p className="message" data-state="error" role="alert">
+          <div className="alert alert--error" role="alert">
             {error}
-          </p>
+          </div>
         ) : issues.length === 0 ? (
-          <p className="empty-state">No issues match the current filters.</p>
+          <p className="admin-empty">No issues match the current filters.</p>
         ) : (
-          <div className="booking-history" role="list">
+          <div className="issue-list">
             {issues.map((issue) => {
               const isResolveBusy = pendingId === `${issue.id}-status`;
               const isPriorityBusy = pendingId === `${issue.id}-priority`;
@@ -244,13 +255,12 @@ export default function AdminIssues({ session }) {
               return (
                 <article
                   key={issue.id}
-                  className="booking-history__item"
-                  role="listitem"
+                  className="issue-row"
                 >
-                  <div className="booking-history__header">
-                    <div>
-                      <p className="summary-label">Issue</p>
-                      <p className="summary-value">#{issue.id}</p>
+                  <div className="issue-row__header">
+                    <div className="issue-row__heading">
+                      <p className="fleet-card__label">Issue</p>
+                      <p className="issue-row__id">#{issue.id}</p>
                     </div>
                     <span
                       className={`status-pill status-pill--${issue.status}`}
@@ -259,70 +269,75 @@ export default function AdminIssues({ session }) {
                     </span>
                   </div>
 
-                  <div className="booking-history__grid">
-                    <div className="summary-card">
-                      <p className="summary-label">Scooter</p>
-                      <p className="summary-value">{issue.scooterId}</p>
+                  <div className="issue-row__meta">
+                    <div className="fleet-card__stat">
+                      <p className="fleet-card__label">Scooter</p>
+                      <p className="fleet-card__stat-value">{issue.scooterId}</p>
                     </div>
-                    <div className="summary-card">
-                      <p className="summary-label">Reporter</p>
-                      <p className="summary-value">User #{issue.userId}</p>
+                    <div className="fleet-card__stat">
+                      <p className="fleet-card__label">Reporter</p>
+                      <p className="fleet-card__stat-value">User #{issue.userId}</p>
                     </div>
-                    <div className="summary-card">
-                      <p className="summary-label">Priority</p>
-                      <p className="summary-value">
+                    <div className="fleet-card__stat">
+                      <p className="fleet-card__label">Priority</p>
+                      <span className={`priority-badge priority-badge--${issue.priority}`}>
                         {toStatusLabel(issue.priority)}
-                      </p>
+                      </span>
                     </div>
-                    <div className="summary-card">
-                      <p className="summary-label">Reported</p>
-                      <p className="summary-value">
+                    <div className="fleet-card__stat">
+                      <p className="fleet-card__label">Reported</p>
+                      <p className="fleet-card__stat-value">
                         {formatDateTime(issue.createdAt)}
                       </p>
                     </div>
                   </div>
 
-                  <p className="hire-note" style={{ marginTop: '0.75rem' }}>
+                  <p className="issue-row__description">
                     {issue.description}
                   </p>
 
-                  <div className="booking-actions">
+                  <div className="issue-row__actions">
                     {issue.priority === 'low' ? (
                       <button
                         type="button"
+                        className="btn btn--primary"
                         onClick={() =>
                           updateIssueField(issue, 'priority', 'high')
                         }
                         disabled={isPriorityBusy || !!pendingId}
                       >
+                        <ArrowUp size={14} aria-hidden="true" />
                         {isPriorityBusy ? 'Escalating...' : 'Escalate'}
                       </button>
                     ) : (
                       <button
                         type="button"
-                        className="secondary"
+                        className="btn btn--secondary"
                         onClick={() =>
                           updateIssueField(issue, 'priority', 'low')
                         }
                         disabled={isPriorityBusy || !!pendingId}
                       >
+                        <ArrowDown size={14} aria-hidden="true" />
                         {isPriorityBusy ? 'Updating...' : 'De-escalate'}
                       </button>
                     )}
                     {issue.status === 'open' ? (
                       <button
                         type="button"
+                        className="btn btn--primary"
                         onClick={() =>
                           updateIssueField(issue, 'status', 'resolved')
                         }
                         disabled={isResolveBusy || !!pendingId}
                       >
+                        <CheckCircle2 size={14} aria-hidden="true" />
                         {isResolveBusy ? 'Resolving...' : 'Resolve'}
                       </button>
                     ) : (
                       <button
                         type="button"
-                        className="secondary"
+                        className="btn btn--secondary"
                         onClick={() =>
                           updateIssueField(issue, 'status', 'open')
                         }
