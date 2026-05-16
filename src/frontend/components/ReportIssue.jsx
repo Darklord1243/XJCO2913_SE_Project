@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { useScooters } from '../hooks/useScooters';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
@@ -85,12 +86,12 @@ export default function ReportIssue({ session }) {
 
   if (!token) {
     return (
-      <section className="report-issue-view">
-        <article className="panel panel-accent panel-wide">
-          <div className="panel-header">
-            <h2>Report a problem</h2>
+      <section className="bookings-page">
+        <article className="page-card page-card--accent page-card--wide">
+          <div className="page-header">
+            <h2 className="page-title">Report a problem</h2>
           </div>
-          <p className="empty-state">
+          <p className="page-empty">
             Sign in to report an issue with a scooter.
           </p>
         </article>
@@ -100,12 +101,12 @@ export default function ReportIssue({ session }) {
 
   if (isLoading) {
     return (
-      <section className="report-issue-view">
-        <article className="panel panel-accent panel-wide">
-          <div className="panel-header">
-            <h2>Report a problem</h2>
+      <section className="bookings-page">
+        <article className="page-card page-card--accent page-card--wide">
+          <div className="page-header">
+            <h2 className="page-title">Report a problem</h2>
           </div>
-          <p className="empty-state">Loading scooter list...</p>
+          <p className="page-loading">Loading scooter list...</p>
         </article>
       </section>
     );
@@ -113,15 +114,19 @@ export default function ReportIssue({ session }) {
 
   if (error) {
     return (
-      <section className="report-issue-view">
-        <article className="panel panel-accent panel-wide">
-          <div className="panel-header">
-            <h2>Report a problem</h2>
+      <section className="bookings-page">
+        <article className="page-card page-card--accent page-card--wide">
+          <div className="page-header">
+            <h2 className="page-title">Report a problem</h2>
           </div>
-          <p className="message" data-state="error" role="alert">
+          <div className="alert alert--error" role="alert">
             Could not load scooters: {error}
-          </p>
-          <button type="button" className="secondary" onClick={refetchScooters}>
+          </div>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={refetchScooters}
+          >
             Retry
           </button>
         </article>
@@ -130,44 +135,42 @@ export default function ReportIssue({ session }) {
   }
 
   return (
-    <section className="report-issue-view">
-      <article className="panel panel-accent panel-wide">
-        <div className="panel-header">
-          <h2>Report a problem</h2>
+    <section className="bookings-page">
+      <article className="page-card page-card--accent page-card--wide">
+        <div className="page-header">
+          <h2 className="page-title">Report a problem</h2>
         </div>
 
         {createdIssue ? (
           <div
-            className="booking-confirmation"
+            className="page-success"
             role="status"
             aria-live="polite"
           >
-            <div className="panel-header">
-              <h3>Issue reported</h3>
-            </div>
-            <div className="booking-confirmation__grid">
-              <div className="summary-card">
-                <p className="summary-label">Issue ID</p>
-                <p className="summary-value">{createdIssue.id}</p>
+            <h3 className="page-success__title">Issue reported</h3>
+            <div className="page-success__grid">
+              <div className="list-card__stat">
+                <p className="list-card__label">Issue ID</p>
+                <p className="list-card__value">{createdIssue.id}</p>
               </div>
-              <div className="summary-card">
-                <p className="summary-label">Scooter</p>
-                <p className="summary-value">{createdIssue.scooterId}</p>
+              <div className="list-card__stat">
+                <p className="list-card__label">Scooter</p>
+                <p className="list-card__value">{createdIssue.scooterId}</p>
               </div>
-              <div className="summary-card">
-                <p className="summary-label">Status</p>
-                <p className="summary-value">{createdIssue.status}</p>
+              <div className="list-card__stat">
+                <p className="list-card__label">Status</p>
+                <p className="list-card__value">{createdIssue.status}</p>
               </div>
-              <div className="summary-card">
-                <p className="summary-label">Priority</p>
-                <p className="summary-value">{createdIssue.priority}</p>
+              <div className="list-card__stat">
+                <p className="list-card__label">Priority</p>
+                <p className="list-card__value">{createdIssue.priority}</p>
               </div>
             </div>
-            <p className="hire-note" style={{ marginTop: '0.75rem' }}>
+            <p className="page-success__note">
               Your report has been submitted. Staff will review it shortly.
             </p>
-            <div style={{ marginTop: '1rem' }}>
-              <button type="button" onClick={resetForm}>
+            <div className="page-success__actions">
+              <button type="button" className="btn btn--secondary" onClick={resetForm}>
                 Report another issue
               </button>
             </div>
@@ -175,14 +178,21 @@ export default function ReportIssue({ session }) {
         ) : (
           <>
             {scooters.length === 0 ? (
-              <p className="empty-state">
-                No scooters are available to report at this time.
-              </p>
+              <div className="page-empty-state">
+                <AlertCircle size={48} className="page-empty-state__icon" />
+                <p className="page-empty-state__title">No scooters available</p>
+                <p className="page-empty-state__sub">
+                  No scooters are available to report at this time.
+                </p>
+              </div>
             ) : (
-              <form className="form-grid" onSubmit={handleSubmit}>
-                <label htmlFor="report-scooter-id">
-                  Scooter
+              <form className="page-form" onSubmit={handleSubmit}>
+                <div className="field">
+                  <label className="field__label" htmlFor="report-scooter-id">
+                    Scooter
+                  </label>
                   <select
+                    className="input"
                     id="report-scooter-id"
                     value={scooterId}
                     onChange={(e) => setScooterId(e.target.value)}
@@ -198,11 +208,14 @@ export default function ReportIssue({ session }) {
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
 
-                <label htmlFor="report-description">
-                  Description
+                <div className="field">
+                  <label className="field__label" htmlFor="report-description">
+                    Description
+                  </label>
                   <textarea
+                    className="input"
                     id="report-description"
                     rows={4}
                     placeholder="Describe the issue with the scooter..."
@@ -210,21 +223,24 @@ export default function ReportIssue({ session }) {
                     onChange={(e) => setDescription(e.target.value)}
                     required
                   />
-                </label>
+                </div>
 
                 {formMessage.text ? (
-                  <p
-                    className="message"
-                    data-state={formMessage.state || undefined}
+                  <div
+                    className={`alert ${formMessage.state === 'error' ? 'alert--error' : 'alert--success'}`}
                     role="alert"
                     aria-live="polite"
                   >
                     {formMessage.text}
-                  </p>
+                  </div>
                 ) : null}
 
-                <div className="form-actions">
-                  <button type="submit" disabled={isSubmitting}>
+                <div className="page-form__actions">
+                  <button
+                    type="submit"
+                    className="btn btn--primary"
+                    disabled={isSubmitting}
+                  >
                     {isSubmitting ? 'Submitting...' : 'Submit report'}
                   </button>
                 </div>
