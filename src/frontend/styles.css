@@ -1,3 +1,6 @@
+@import url('./styles/tokens.css');
+@import url('./styles/base.css');
+
 :root {
   color-scheme: light;
   --bg: #f6f3ea;
