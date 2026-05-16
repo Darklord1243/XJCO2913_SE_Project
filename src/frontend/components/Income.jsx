@@ -28,6 +28,59 @@ const PLAN_CONFIG = [
   { key: 'oneWeek', label: '1 Week' },
 ];
 
+function parseDateOnlyUtc(dateStr) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function formatDateOnlyUtc(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getMondayOfCurrentWeekUtc() {
+  const now = new Date();
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  );
+  const day = today.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  today.setUTCDate(today.getUTCDate() + mondayOffset);
+  return formatDateOnlyUtc(today);
+}
+
+function shiftWeekUtc(dateStr, deltaWeeks) {
+  const base = parseDateOnlyUtc(dateStr);
+  if (!base) {
+    return getMondayOfCurrentWeekUtc();
+  }
+
+  base.setUTCDate(base.getUTCDate() + deltaWeeks * 7);
+  return formatDateOnlyUtc(base);
+}
+
+function normalizeWeekStartUtc(dateStr) {
+  const parsed = parseDateOnlyUtc(dateStr);
+  if (!parsed) {
+    return getMondayOfCurrentWeekUtc();
+  }
+
+  const day = parsed.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  parsed.setUTCDate(parsed.getUTCDate() + mondayOffset);
+  return formatDateOnlyUtc(parsed);
+}
+
 function readCssToken(name) {
   if (typeof document === 'undefined') {
     return '';
@@ -71,21 +124,6 @@ function formatWeekLabel(dateStr) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(`${dateStr}T00:00:00`));
-}
-
-function getMondayOfCurrentWeek() {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + mondayOffset);
-  return monday.toISOString().slice(0, 10);
-}
-
-function shiftWeek(dateStr, delta) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  d.setDate(d.getDate() + delta * 7);
-  return d.toISOString().slice(0, 10);
 }
 
 function formatAxisCurrency(value) {
@@ -159,7 +197,7 @@ function DailyChartTooltip({ active, payload }) {
 
 export default function Income({ session }) {
   const token = getSessionToken(session);
-  const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeek);
+  const [weekStart, setWeekStart] = useState(getMondayOfCurrentWeekUtc);
   const [data, setData] = useState(null);
   const [dailyData, setDailyData] = useState(null);
   const [viewMode, setViewMode] = useState('plan'); // 'plan' | 'day'
@@ -212,6 +250,13 @@ export default function Income({ session }) {
     fetchIncome(controller.signal);
     return () => controller.abort();
   }, [fetchIncome]);
+
+  useEffect(() => {
+    const parsed = parseDateOnlyUtc(weekStart);
+    if (parsed && parsed.getUTCDay() !== 1) {
+      setWeekStart(normalizeWeekStartUtc(weekStart));
+    }
+  }, [weekStart]);
 
   const chartData = useMemo(() => {
     if (viewMode === 'plan' && data) {
@@ -291,7 +336,7 @@ export default function Income({ session }) {
             type="button"
             className="btn btn--secondary"
             aria-label={`View income for previous week before ${formatWeekLabel(weekStart)}`}
-            onClick={() => setWeekStart((ws) => shiftWeek(ws, -1))}
+            onClick={() => setWeekStart((ws) => shiftWeekUtc(ws, -1))}
           >
             <ChevronLeft size={14} aria-hidden="true" />
             Previous
@@ -303,7 +348,7 @@ export default function Income({ session }) {
             type="button"
             className="btn btn--secondary"
             aria-label={`View income for next week after ${formatWeekLabel(weekStart)}`}
-            onClick={() => setWeekStart((ws) => shiftWeek(ws, 1))}
+            onClick={() => setWeekStart((ws) => shiftWeekUtc(ws, 1))}
           >
             Next
             <ChevronRight size={14} aria-hidden="true" />
