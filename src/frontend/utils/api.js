@@ -1,5 +1,6 @@
 export async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const { signal, ...fetchOptions } = options;
+  const response = await fetch(url, { ...fetchOptions, signal });
   let payload = null;
 
   try {

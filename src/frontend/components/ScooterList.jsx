@@ -3,9 +3,16 @@ import { CreditCard, Lock, MapPin, X } from 'lucide-react';
 import { useScooters } from '../hooks/useScooters';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
+import { apiUrl } from '../utils/apiBase';
+import { getDiscountReasonLabel } from '../utils/accountTypes';
 import { formatCurrency } from '../utils/currency';
+import {
+  isManualPaymentComplete,
+  isSavedCardCvvValid,
+} from '../utils/paymentForm';
 
-const BOOKING_ENDPOINT = 'http://127.0.0.1:3000/api/bookings';
+const BOOKING_ENDPOINT = apiUrl('/api/bookings');
+const CARDS_ENDPOINT = apiUrl('/api/cards');
 // Vite exposes `import.meta.env.DEV` as `true` only in the dev/test
 // bundle. We use it to gate test-card simulator copy so production-style
 // builds never render those instructions to real customers.
@@ -78,6 +85,9 @@ export default function ScooterList({ session, onBookingCreated }) {
   const [savedCards, setSavedCards] = useState([]);
   const [selectedSavedCardId, setSelectedSavedCardId] = useState(null);
   const [paymentMode, setPaymentMode] = useState('manual'); // 'manual' | 'saved'
+  const [savedCardCvv, setSavedCardCvv] = useState('');
+  const [pricingPreview, setPricingPreview] = useState(null);
+  const [isPricingLoading, setIsPricingLoading] = useState(false);
   const bookingTriggerRef = useRef(null);
   const modalRef = useRef(null);
 
@@ -132,6 +142,14 @@ export default function ScooterList({ session, onBookingCreated }) {
   const sessionToken = getSessionToken(session);
   const isSignedIn = Boolean(sessionToken);
 
+  const canConfirmBooking = useMemo(() => {
+    if (paymentMode === 'saved') {
+      return Boolean(selectedSavedCardId) && isSavedCardCvvValid(savedCardCvv);
+    }
+
+    return isManualPaymentComplete(paymentForm);
+  }, [paymentForm, paymentMode, savedCardCvv, selectedSavedCardId]);
+
   useEffect(() => {
     if (!isSignedIn) {
       setIsBookingModalOpen(false);
@@ -170,6 +188,38 @@ export default function ScooterList({ session, onBookingCreated }) {
     }
   }, [isBookingModalOpen, bookingScooterId]);
 
+  useEffect(() => {
+    if (!isBookingModalOpen || !bookingScooter || !sessionToken) {
+      setPricingPreview(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const previewUrl = `${apiUrl('/api/bookings/pricing-preview')}?scooterId=${encodeURIComponent(bookingScooter.scooterId)}&durationCode=${encodeURIComponent(selectedDurationCode)}`;
+
+    async function loadPricingPreview() {
+      setIsPricingLoading(true);
+      try {
+        const result = await requestJson(previewUrl, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+          signal: controller.signal,
+        });
+        setPricingPreview(result.data || null);
+      } catch (previewError) {
+        if (previewError.name !== 'AbortError') {
+          console.error('Pricing preview failed:', previewError);
+          setPricingPreview(null);
+        }
+      } finally {
+        setIsPricingLoading(false);
+      }
+    }
+
+    loadPricingPreview();
+
+    return () => controller.abort();
+  }, [bookingScooter, isBookingModalOpen, selectedDurationCode, sessionToken]);
+
   async function openBookingModal(scooterId, triggerElement) {
     if (!isSignedIn) {
       return;
@@ -183,13 +233,14 @@ export default function ScooterList({ session, onBookingCreated }) {
     setBookingScooterId(scooterId);
     setSelectedDurationCode('oneHour');
     setPaymentForm(defaultPaymentForm);
+    setSavedCardCvv('');
     setBookingMessage({ text: '', state: '' });
     setIsBookingModalOpen(true);
 
     let cards = [];
     if (sessionToken) {
       try {
-        const result = await requestJson('http://127.0.0.1:3000/api/cards', {
+        const result = await requestJson(CARDS_ENDPOINT, {
           headers: { Authorization: `Bearer ${sessionToken}` },
         });
         cards = result.data || [];
@@ -217,6 +268,8 @@ export default function ScooterList({ session, onBookingCreated }) {
     setBookingScooterId(null);
     setSelectedDurationCode('oneHour');
     setPaymentForm(defaultPaymentForm);
+    setSavedCardCvv('');
+    setPricingPreview(null);
     setBookingMessage({ text: '', state: '' });
 
     const trigger = bookingTriggerRef.current;
@@ -248,6 +301,7 @@ export default function ScooterList({ session, onBookingCreated }) {
 
       if (paymentMode === 'saved' && selectedSavedCardId) {
         body.savedCardId = selectedSavedCardId;
+        body.cvv = savedCardCvv.trim();
       } else {
         body.payment = paymentForm;
       }
@@ -300,7 +354,10 @@ export default function ScooterList({ session, onBookingCreated }) {
   if (error) {
     return (
       <section className="fleet-page">
-        <article className="fleet-card fleet-card--accent fleet-summary-panel" data-id="ID4">
+        <article
+          className="fleet-card fleet-card--accent fleet-summary-panel"
+          data-id="ID4"
+        >
           <div className="fleet-card__header">
             <h2 className="fleet-card__title">View hire options and cost</h2>
           </div>
@@ -327,12 +384,21 @@ export default function ScooterList({ session, onBookingCreated }) {
   if (scooters.length === 0) {
     return (
       <section className="fleet-page">
-        <article className="fleet-card fleet-card--accent fleet-summary-panel" data-id="ID4-ID17">
+        <article
+          className="fleet-card fleet-card--accent fleet-summary-panel"
+          data-id="ID4-ID17"
+        >
           <div className="fleet-card__header">
-            <h2 className="fleet-card__title">Pricing and fleet availability</h2>
+            <h2 className="fleet-card__title">
+              Pricing and fleet availability
+            </h2>
           </div>
           <div className="page-empty-state">
-            <MapPin size={48} className="page-empty-state__icon" aria-hidden="true" />
+            <MapPin
+              size={48}
+              className="page-empty-state__icon"
+              aria-hidden="true"
+            />
             <p className="page-empty-state__title">No scooters available</p>
             <p className="page-empty-state__sub">
               No scooters are configured for hire pricing yet.
@@ -349,7 +415,10 @@ export default function ScooterList({ session, onBookingCreated }) {
 
   return (
     <section className="fleet-page">
-      <article className="fleet-card fleet-card--accent fleet-summary-panel" data-id="ID4">
+      <article
+        className="fleet-card fleet-card--accent fleet-summary-panel"
+        data-id="ID4"
+      >
         <div className="fleet-card__header">
           <h2 className="fleet-card__title">View hire options and cost</h2>
         </div>
@@ -400,11 +469,26 @@ export default function ScooterList({ session, onBookingCreated }) {
                   {toStatusLabel(bookingResult.durationCode)}
                 </p>
               </div>
+              {bookingResult.discountApplied ? (
+                <div className="fleet-stat">
+                  <p className="fleet-stat__label">List price</p>
+                  <p className="fleet-stat__value">
+                    {formatCurrency(bookingResult.originalPrice)}
+                  </p>
+                </div>
+              ) : null}
               <div className="fleet-stat">
-                <p className="fleet-stat__label">Total price</p>
+                <p className="fleet-stat__label">
+                  {bookingResult.discountApplied ? 'Total paid' : 'Total price'}
+                </p>
                 <p className="fleet-stat__value">
                   {formatCurrency(bookingResult.totalPrice)}
                 </p>
+                {bookingResult.discountApplied ? (
+                  <p className="fleet-stat__meta">
+                    {getDiscountReasonLabel(bookingResult.discountReason)}
+                  </p>
+                ) : null}
               </div>
               <div className="fleet-stat">
                 <p className="fleet-stat__label">Created at</p>
@@ -467,7 +551,11 @@ export default function ScooterList({ session, onBookingCreated }) {
                   </span>
                 </div>
                 <p className="scooter-card__location">
-                  <MapPin size={16} className="scooter-card__location-icon" aria-hidden="true" />
+                  <MapPin
+                    size={16}
+                    className="scooter-card__location-icon"
+                    aria-hidden="true"
+                  />
                   {scooter.location?.description || 'Unknown'}
                 </p>
                 <p className="scooter-card__rate">
@@ -487,7 +575,9 @@ export default function ScooterList({ session, onBookingCreated }) {
                   <button
                     type="button"
                     className="btn btn--primary"
-                    onClick={(event) => openBookingModal(scooter.scooterId, event.currentTarget)}
+                    onClick={(event) =>
+                      openBookingModal(scooter.scooterId, event.currentTarget)
+                    }
                     disabled={!isSignedIn || scooter.status !== 'available'}
                     aria-haspopup="dialog"
                     aria-expanded={
@@ -522,7 +612,9 @@ export default function ScooterList({ session, onBookingCreated }) {
               return (
                 <article key={plan.key} className="fleet-plan-card">
                   <h3 className="fleet-plan-card__title">{plan.title}</h3>
-                  <p className="fleet-plan-card__price">{formatCurrency(planPrice)}</p>
+                  <p className="fleet-plan-card__price">
+                    {formatCurrency(planPrice)}
+                  </p>
                   <p className="fleet-plan-card__meta">
                     {plan.durationHours === 1
                       ? 'Flexible pay-as-you-go rate'
@@ -571,7 +663,9 @@ export default function ScooterList({ session, onBookingCreated }) {
             data-id="ID5"
           >
             <div className="modal__header">
-              <h2 id="booking-dialog-title" className="modal__title">Confirm your booking</h2>
+              <h2 id="booking-dialog-title" className="modal__title">
+                Confirm your booking
+              </h2>
               <button
                 type="button"
                 className="modal__close"
@@ -588,12 +682,15 @@ export default function ScooterList({ session, onBookingCreated }) {
                 <p className="fleet-modal__label">Scooter</p>
                 <p className="fleet-modal__value">{bookingScooter.scooterId}</p>
                 <p className="fleet-modal__meta">
-                  {bookingScooter.location?.description || 'Unknown location'} &bull;{' '}
-                  {toStatusLabel(bookingScooter.status)}
+                  {bookingScooter.location?.description || 'Unknown location'}{' '}
+                  &bull; {toStatusLabel(bookingScooter.status)}
                 </p>
               </div>
 
-              <form className="fleet-modal__form" onSubmit={handleBookingSubmit}>
+              <form
+                className="fleet-modal__form"
+                onSubmit={handleBookingSubmit}
+              >
                 <fieldset className="plan-grid">
                   <legend>Choose a hire duration</legend>
                   {hirePlanConfig.map((plan) => (
@@ -633,20 +730,53 @@ export default function ScooterList({ session, onBookingCreated }) {
                   <p className="fleet-modal__label">Selected plan</p>
                   <p className="fleet-modal__value">{selectedPlan.title}</p>
                   <p className="fleet-modal__meta">
-                    Total to confirm now: {formatCurrency(bookingTotal)}
+                    List price: {formatCurrency(bookingTotal)}
                   </p>
+                  {isPricingLoading ? (
+                    <p className="fleet-modal__meta">Calculating your price…</p>
+                  ) : pricingPreview ? (
+                    <>
+                      {pricingPreview.discountApplied ? (
+                        <p className="fleet-modal__meta">
+                          {getDiscountReasonLabel(
+                            pricingPreview.discountReason
+                          )}{' '}
+                          — total to pay:{' '}
+                          <strong>
+                            {formatCurrency(pricingPreview.totalPrice)}
+                          </strong>
+                        </p>
+                      ) : (
+                        <p className="fleet-modal__meta">
+                          Total to pay:{' '}
+                          <strong>
+                            {formatCurrency(pricingPreview.totalPrice)}
+                          </strong>
+                        </p>
+                      )}
+                      {!pricingPreview.discountApplied &&
+                      pricingPreview.hoursUntilFrequentDiscount > 0 ? (
+                        <p className="fleet-modal__meta">
+                          Frequent rider: {pricingPreview.weeklyHours} hire
+                          hours in the last 7 days (
+                          {pricingPreview.hoursUntilFrequentDiscount} more for
+                          20% off).
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="fleet-modal__meta">
+                      Final price is confirmed by the server at checkout.
+                    </p>
+                  )}
                 </div>
 
                 {isSignedIn ? (
                   <p className="fleet-modal__payment-note">
                     Payments are simulated for this coursework build (no real
-                    charge).
-                    {session?.user?.userType === 'student' ||
-                    session?.user?.userType === 'senior'
-                      ? ' Your account type qualifies for a 20% discount applied at checkout.'
-                      : " Students and seniors receive 20% off (selected at registration). Frequent riders (8+ hire hours in 7 days) also receive 20% off."}{' '}
-                    Price shown is the plan rate; final total is confirmed by the
-                    server.
+                    charge). Account type and frequent-rider discounts are
+                    applied on the server — update your type under Profile if
+                    needed.
                   </p>
                 ) : null}
 
@@ -666,8 +796,8 @@ export default function ScooterList({ session, onBookingCreated }) {
                       <span className="plan-option__body">
                         <span className="plan-option__top">
                           <strong>
-                            <CreditCard size={16} aria-hidden="true" />
-                            {' '}Use a saved card
+                            <CreditCard size={16} aria-hidden="true" /> Use a
+                            saved card
                           </strong>
                         </span>
                       </span>
@@ -723,13 +853,38 @@ export default function ScooterList({ session, onBookingCreated }) {
                   </fieldset>
                 ) : null}
 
+                {paymentMode === 'saved' && savedCards.length > 0 ? (
+                  <div className="field">
+                    <label className="field__label" htmlFor="saved-booking-cvv">
+                      CVV
+                    </label>
+                    <input
+                      id="saved-booking-cvv"
+                      name="savedBookingCvv"
+                      type="text"
+                      className="input"
+                      inputMode="numeric"
+                      autoComplete="cc-csc"
+                      maxLength={4}
+                      placeholder="Re-enter CVV"
+                      value={savedCardCvv}
+                      onChange={(event) => setSavedCardCvv(event.target.value)}
+                      required
+                    />
+                    <span className="field__hint">
+                      Required when paying with a saved card (not stored on our
+                      servers).
+                    </span>
+                  </div>
+                ) : null}
+
                 {paymentMode === 'manual' ? (
                   <>
                     {SHOW_PAYMENT_SIMULATOR ? (
-                      <div className="fleet-modal__summary">
-                        <p className="fleet-modal__label">
+                      <details className="fleet-modal__summary">
+                        <summary className="fleet-modal__label">
                           Test card numbers (development only)
-                        </p>
+                        </summary>
                         <p className="fleet-modal__payment-note">
                           Use <strong>4242 4242 4242 4242</strong> to simulate a
                           successful payment.
@@ -738,7 +893,7 @@ export default function ScooterList({ session, onBookingCreated }) {
                           Use <strong>4000 0000 0000 0002</strong> to simulate a
                           declined payment.
                         </p>
-                      </div>
+                      </details>
                     ) : null}
 
                     <p className="fleet-modal__payment-heading">
@@ -747,7 +902,12 @@ export default function ScooterList({ session, onBookingCreated }) {
                     </p>
 
                     <div className="field">
-                      <label className="field__label" htmlFor="payment-cardholder-name">Cardholder name</label>
+                      <label
+                        className="field__label"
+                        htmlFor="payment-cardholder-name"
+                      >
+                        Cardholder name
+                      </label>
                       <input
                         id="payment-cardholder-name"
                         name="cardholderName"
@@ -766,7 +926,12 @@ export default function ScooterList({ session, onBookingCreated }) {
                     </div>
 
                     <div className="field">
-                      <label className="field__label" htmlFor="payment-card-number">Card number</label>
+                      <label
+                        className="field__label"
+                        htmlFor="payment-card-number"
+                      >
+                        Card number
+                      </label>
                       <input
                         id="payment-card-number"
                         name="cardNumber"
@@ -775,7 +940,7 @@ export default function ScooterList({ session, onBookingCreated }) {
                         inputMode="numeric"
                         autoComplete="cc-number"
                         maxLength={19}
-                        placeholder="4242 4242 4242 4242"
+                        placeholder="16 digits"
                         value={paymentForm.cardNumber}
                         onChange={(event) =>
                           setPaymentForm((current) => ({
@@ -789,7 +954,12 @@ export default function ScooterList({ session, onBookingCreated }) {
 
                     <div className="fleet-modal__payment-row">
                       <div className="field">
-                        <label className="field__label" htmlFor="payment-expiry-date">Expiry date</label>
+                        <label
+                          className="field__label"
+                          htmlFor="payment-expiry-date"
+                        >
+                          Expiry date
+                        </label>
                         <input
                           id="payment-expiry-date"
                           name="expiryDate"
@@ -811,7 +981,9 @@ export default function ScooterList({ session, onBookingCreated }) {
                       </div>
 
                       <div className="field">
-                        <label className="field__label" htmlFor="payment-cvv">CVV</label>
+                        <label className="field__label" htmlFor="payment-cvv">
+                          CVV
+                        </label>
                         <input
                           id="payment-cvv"
                           name="cvv"
@@ -857,10 +1029,7 @@ export default function ScooterList({ session, onBookingCreated }) {
                   <button
                     type="submit"
                     className="btn btn--primary"
-                    disabled={
-                      isBooking ||
-                      (paymentMode === 'saved' && !selectedSavedCardId)
-                    }
+                    disabled={isBooking || !canConfirmBooking}
                   >
                     {isBooking ? 'Confirming...' : 'Confirm booking'}
                   </button>

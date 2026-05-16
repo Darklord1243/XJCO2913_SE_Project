@@ -59,11 +59,11 @@
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.input[aria-invalid="true"] {
+.input[aria-invalid='true'] {
   border-color: var(--danger);
 }
 
-.input[aria-invalid="true"]:focus {
+.input[aria-invalid='true']:focus {
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
 }
 

@@ -5,7 +5,9 @@ import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
-const API_BASE = 'http://127.0.0.1:3000/api';
+import { apiUrl } from '../utils/apiBase';
+
+const API_BASE = apiUrl('/api');
 
 const STATUS_OPTIONS_BASE = [
   { value: 'available', label: 'Available' },
@@ -645,8 +647,14 @@ export default function AdminFleet({ session }) {
           </>
         ) : scooters.length === 0 ? (
           <div className="admin-empty-state">
-            <Bike size={48} className="admin-empty-state__icon" aria-hidden="true" />
-            <p className="admin-empty-state__title">No scooters configured yet</p>
+            <Bike
+              size={48}
+              className="admin-empty-state__icon"
+              aria-hidden="true"
+            />
+            <p className="admin-empty-state__title">
+              No scooters configured yet
+            </p>
             <p className="admin-empty-state__sub">
               Add a scooter to populate the fleet.
             </p>
@@ -700,7 +708,10 @@ export default function AdminFleet({ session }) {
                       </div>
 
                       <div className="field">
-                        <label className="field__label" htmlFor="edit-description">
+                        <label
+                          className="field__label"
+                          htmlFor="edit-description"
+                        >
                           Location description
                         </label>
                         <input
@@ -720,7 +731,10 @@ export default function AdminFleet({ session }) {
 
                       <div className="crud-form__grid">
                         <div className="field">
-                          <label className="field__label" htmlFor="edit-latitude">
+                          <label
+                            className="field__label"
+                            htmlFor="edit-latitude"
+                          >
                             Latitude
                           </label>
                           <input
@@ -739,7 +753,10 @@ export default function AdminFleet({ session }) {
                           />
                         </div>
                         <div className="field">
-                          <label className="field__label" htmlFor="edit-longitude">
+                          <label
+                            className="field__label"
+                            htmlFor="edit-longitude"
+                          >
                             Longitude
                           </label>
                           <input
@@ -761,7 +778,10 @@ export default function AdminFleet({ session }) {
 
                       <div className="crud-form__grid">
                         <div className="field">
-                          <label className="field__label" htmlFor="edit-one-hour">
+                          <label
+                            className="field__label"
+                            htmlFor="edit-one-hour"
+                          >
                             1 hour price (£)
                           </label>
                           <input
@@ -781,7 +801,10 @@ export default function AdminFleet({ session }) {
                           />
                         </div>
                         <div className="field">
-                          <label className="field__label" htmlFor="edit-four-hours">
+                          <label
+                            className="field__label"
+                            htmlFor="edit-four-hours"
+                          >
                             4 hours price (£)
                           </label>
                           <input
@@ -804,7 +827,10 @@ export default function AdminFleet({ session }) {
 
                       <div className="crud-form__grid">
                         <div className="field">
-                          <label className="field__label" htmlFor="edit-one-day">
+                          <label
+                            className="field__label"
+                            htmlFor="edit-one-day"
+                          >
                             1 day price (£)
                           </label>
                           <input
@@ -824,7 +850,10 @@ export default function AdminFleet({ session }) {
                           />
                         </div>
                         <div className="field">
-                          <label className="field__label" htmlFor="edit-one-week">
+                          <label
+                            className="field__label"
+                            htmlFor="edit-one-week"
+                          >
                             1 week price (£)
                           </label>
                           <input
@@ -872,8 +901,7 @@ export default function AdminFleet({ session }) {
                             {scooter.location?.description || 'Unknown'}
                           </p>
                           <p className="fleet-card__stat-sub">
-                            <MapPin size={12} aria-hidden="true" />
-                            {' '}
+                            <MapPin size={12} aria-hidden="true" />{' '}
                             {scooter.location?.latitude},{' '}
                             {scooter.location?.longitude}
                           </p>

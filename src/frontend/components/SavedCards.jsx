@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { CreditCard, Lock } from 'lucide-react';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
+import { apiUrl } from '../utils/apiBase';
 
-const CARDS_ENDPOINT = 'http://127.0.0.1:3000/api/cards';
+const CARDS_ENDPOINT = apiUrl('/api/cards');
 const SHOW_SIMULATOR = Boolean(import.meta.env?.DEV);
 
 const emptyForm = {
@@ -56,7 +57,7 @@ export default function SavedCards({ session }) {
     setMessage({ text: '', state: '' });
 
     try {
-      await requestJson(CARDS_ENDPOINT, {
+      const result = await requestJson(CARDS_ENDPOINT, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -65,7 +66,13 @@ export default function SavedCards({ session }) {
         body: JSON.stringify(form),
       });
       setForm(emptyForm);
-      setMessage({ text: 'Card saved.', state: 'success' });
+      const successText = result.warning
+        ? `Card saved. ${result.warning}`
+        : 'Card saved.';
+      setMessage({
+        text: successText,
+        state: result.warning ? 'error' : 'success',
+      });
       await fetchCards();
     } catch (err) {
       setMessage({
@@ -118,7 +125,11 @@ export default function SavedCards({ session }) {
           <div className="alert alert--error" role="alert">
             {error}
           </div>
-          <button type="button" className="btn btn--secondary" onClick={fetchCards}>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={fetchCards}
+          >
             Retry
           </button>
         </article>
@@ -131,6 +142,10 @@ export default function SavedCards({ session }) {
       <article className="page-card" data-id="ID2">
         <div className="page-header">
           <h2 className="page-title">Your saved cards</h2>
+          <p className="page-subtitle">
+            We store only the card brand and last four digits. Full card numbers
+            and CVV are never kept on our servers.
+          </p>
         </div>
 
         {cards.length === 0 ? (
@@ -138,7 +153,7 @@ export default function SavedCards({ session }) {
             <CreditCard size={48} className="page-empty-state__icon" />
             <p className="page-empty-state__title">No saved cards</p>
             <p className="page-empty-state__sub">
-              Add a card to speed up checkout.
+              Add a card below to speed up checkout on the Fleet page.
             </p>
           </div>
         ) : (
@@ -173,16 +188,41 @@ export default function SavedCards({ session }) {
           <h2 className="page-title">Add a new card</h2>
         </div>
 
+        <aside className="card-simulator-callout" role="note">
+          <p className="card-simulator-callout__title">
+            Coursework payment simulator
+          </p>
+          <p className="card-simulator-callout__lead">
+            Only these test card numbers work when you book a scooter:
+          </p>
+          <ul className="card-simulator-callout__list">
+            <li>
+              <code>4242 4242 4242 4242</code>
+              <span>Payment succeeds</span>
+            </li>
+            <li>
+              <code>4000 0000 0000 0002</code>
+              <span>Payment declined</span>
+            </li>
+          </ul>
+          <p className="card-simulator-callout__footer">
+            You may save other card numbers, but they cannot be charged in this
+            build.
+          </p>
+        </aside>
+
         {SHOW_SIMULATOR ? (
-          <div className="page-simulator">
-            <p className="page-simulator__label">Payment simulator (dev only)</p>
+          <details className="page-simulator">
+            <summary className="page-simulator__label">
+              Testing help (development only)
+            </summary>
             <p className="page-simulator__note">
               Use <strong>4242 4242 4242 4242</strong> for a valid card.
             </p>
             <p className="page-simulator__note">
               Use <strong>4000 0000 0000 0002</strong> for a declined card.
             </p>
-          </div>
+          </details>
         ) : null}
 
         <form className="page-form" onSubmit={handleAddCard}>
@@ -220,7 +260,7 @@ export default function SavedCards({ session }) {
               inputMode="numeric"
               autoComplete="cc-number"
               maxLength={19}
-              placeholder="4242 4242 4242 4242"
+              placeholder="16 digits"
               value={form.cardNumber}
               onChange={(e) => handleFormChange('cardNumber', e.target.value)}
               required

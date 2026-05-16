@@ -6,13 +6,15 @@ const {
 } = require('../auth-middleware');
 const {
   calculateWeeklyUserHours,
+  computeBookingPricing,
   createBookingInTransaction,
   durationCodes,
-  hashCardPan,
   normalizeId,
   normalizeText,
   pricingColumnMap,
+  resolveSimulatorPanFromHash,
   simulatePayment,
+  validateCvv,
   validatePaymentPayload,
 } = require('../booking-service');
 const {
@@ -26,22 +28,20 @@ const {
 } = require('../email-service');
 const db = require('../db/connection');
 
-const DISCOUNTED_USER_TYPES = new Set(['student', 'senior']);
-const FREQUENT_USER_HOURS_THRESHOLD = 8;
-const DISCOUNT_MULTIPLIER = 0.8;
-
-// Reverse lookup: stored-card hash → simulator card number.
-// The hash is deterministic (SHA-256 of normalised PAN) so we can recover the
-// simulator inputs from a saved card without storing the raw PAN. In a real
-// system the PAN would never reach our servers — a payment processor would
-// return an opaque token.
-const SIMULATOR_CARD_BY_HASH = {
-  [hashCardPan('4242424242424242')]: '4242424242424242',
-  [hashCardPan('4000000000000002')]: '4000000000000002',
-};
-
 function roundToTwoDecimals(value) {
   return Math.round(value * 100) / 100;
+}
+
+function isMissingStoredCardsTable(error) {
+  const message = String(error?.message || '');
+  return message.includes('no such table: stored_cards');
+}
+
+async function resolveWeeklyHoursForUser(userId) {
+  return calculateWeeklyUserHours({
+    dbAll,
+    userId,
+  });
 }
 
 const router = express.Router();
@@ -168,6 +168,95 @@ router.get('/bookings/me', handleGetMyBookings);
 
 router.get('/bookings', handleGetMyBookings);
 
+router.get('/bookings/pricing-preview', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req, res);
+
+    if (!user) {
+      return;
+    }
+
+    const scooterId = normalizeId(req.query?.scooterId);
+
+    if (!scooterId) {
+      return res.status(400).json({
+        success: false,
+        error: 'scooterId query parameter is required.',
+      });
+    }
+
+    const durationCode = normalizeText(req.query?.durationCode);
+
+    if (!durationCodes.includes(durationCode)) {
+      return res.status(400).json({
+        success: false,
+        error: `durationCode must be one of: ${durationCodes.join(', ')}.`,
+      });
+    }
+
+    const scooter = await getScooterPricingSnapshot(scooterId);
+
+    if (!scooter) {
+      return res.status(404).json({
+        success: false,
+        error: 'Scooter not found.',
+      });
+    }
+
+    const baseTotalPrice = scooter[pricingColumnMap[durationCode]];
+
+    if (
+      typeof baseTotalPrice !== 'number' ||
+      !Number.isFinite(baseTotalPrice) ||
+      baseTotalPrice < 0
+    ) {
+      console.error(
+        `GET /api/bookings/pricing-preview: invalid base price for scooter=${scooterId} duration=${durationCode}`
+      );
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to determine booking price.',
+      });
+    }
+
+    const userType =
+      typeof user.user_type === 'string' ? user.user_type : 'standard';
+
+    let weeklyHours = 0;
+
+    try {
+      weeklyHours = await resolveWeeklyHoursForUser(user.id);
+    } catch (weeklyHoursError) {
+      console.error(
+        `GET /api/bookings/pricing-preview: failed weekly hours for userId=${user.id}:`,
+        weeklyHoursError
+      );
+      throw weeklyHoursError;
+    }
+
+    const pricing = computeBookingPricing({
+      userType,
+      weeklyHours,
+      baseTotalPrice,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        scooterId,
+        durationCode,
+        ...pricing,
+      },
+    });
+  } catch (error) {
+    console.error('GET /api/bookings/pricing-preview failed:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to preview booking price.',
+    });
+  }
+});
+
 router.post('/bookings', async (req, res) => {
   try {
     const user = await authenticateRequest(req, res);
@@ -219,23 +308,30 @@ router.post('/bookings', async (req, res) => {
         });
       }
 
-      const resolvedCardNumber = SIMULATOR_CARD_BY_HASH[card.card_hash];
+      const resolvedCardNumber = resolveSimulatorPanFromHash(card.card_hash);
 
       if (!resolvedCardNumber) {
         return res.status(400).json({
           success: false,
-          error: 'Saved card cannot be used with the payment simulator.',
+          error:
+            'This saved card is not supported by the payment simulator. Use a test card (4242… or 4000…0002) or pay with a new card.',
         });
       }
 
-      // Build a synthetic payment payload from the resolved card number.
-      // Expiry and CVV are placeholders — the simulator only validates the
-      // card number, and the real card was already validated when saved.
+      const cvvValidation = validateCvv(req.body?.cvv);
+
+      if (!cvvValidation.ok) {
+        return res.status(400).json({
+          success: false,
+          error: cvvValidation.message,
+        });
+      }
+
       paymentSource = {
         cardholderName: user.full_name || 'Cardholder',
         cardNumber: resolvedCardNumber,
         expiryDate: '12/30',
-        cvv: '123',
+        cvv: cvvValidation.value,
       };
     } else {
       paymentSource = req.body?.payment;
@@ -288,10 +384,7 @@ router.post('/bookings', async (req, res) => {
     let weeklyHours = 0;
 
     try {
-      weeklyHours = await calculateWeeklyUserHours({
-        dbAll,
-        userId: user.id,
-      });
+      weeklyHours = await resolveWeeklyHoursForUser(user.id);
     } catch (weeklyHoursError) {
       console.error(
         `POST /api/bookings: failed to compute weekly hours for userId=${user.id}:`,
@@ -300,14 +393,12 @@ router.post('/bookings', async (req, res) => {
       throw weeklyHoursError;
     }
 
-    const isDiscountedUserType = DISCOUNTED_USER_TYPES.has(userType);
-    const isFrequentUser = weeklyHours >= FREQUENT_USER_HOURS_THRESHOLD;
-    const discountApplied = isDiscountedUserType || isFrequentUser;
-
-    const originalPrice = roundToTwoDecimals(baseTotalPrice);
-    const totalPrice = discountApplied
-      ? roundToTwoDecimals(baseTotalPrice * DISCOUNT_MULTIPLIER)
-      : originalPrice;
+    const { discountApplied, originalPrice, totalPrice, discountReason } =
+      computeBookingPricing({
+        userType,
+        weeklyHours,
+        baseTotalPrice,
+      });
 
     const paymentValidation = validatePaymentPayload(paymentSource);
 
@@ -356,6 +447,7 @@ router.post('/bookings', async (req, res) => {
       paymentReference: paymentResult.value.paymentReference,
       scooterStatus: 'in_use',
       discountApplied,
+      discountReason: discountApplied ? discountReason : null,
       originalPrice,
     };
 

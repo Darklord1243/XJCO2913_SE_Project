@@ -195,48 +195,48 @@
 }
 
 /* Admin variant overrides — when body[data-area="admin"] sets --nav and --nav-text */
-body[data-area="admin"] .nav__brand-mark {
+body[data-area='admin'] .nav__brand-mark {
   background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
 }
 
-body[data-area="admin"] .nav__role {
+body[data-area='admin'] .nav__role {
   background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
 }
 
-body[data-area="admin"] .nav__link {
+body[data-area='admin'] .nav__link {
   color: rgba(255, 255, 255, 0.72);
 }
 
-body[data-area="admin"] .nav__link:hover {
+body[data-area='admin'] .nav__link:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 
-body[data-area="admin"] .nav__link.is-active {
+body[data-area='admin'] .nav__link.is-active {
   background: var(--accent);
   color: #ffffff;
 }
 
-body[data-area="admin"] .nav__icon-btn,
-body[data-area="admin"] .nav__logout {
+body[data-area='admin'] .nav__icon-btn,
+body[data-area='admin'] .nav__logout {
   color: rgba(255, 255, 255, 0.85);
   border-color: rgba(255, 255, 255, 0.16);
 }
 
-body[data-area="admin"] .nav__icon-btn:hover,
-body[data-area="admin"] .nav__logout:hover {
+body[data-area='admin'] .nav__icon-btn:hover,
+body[data-area='admin'] .nav__logout:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.32);
   color: #ffffff;
 }
 
-body[data-area="admin"] .nav__drawer-link {
+body[data-area='admin'] .nav__drawer-link {
   color: rgba(255, 255, 255, 0.72);
 }
 
-body[data-area="admin"] .nav__drawer-link:hover {
+body[data-area='admin'] .nav__drawer-link:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }

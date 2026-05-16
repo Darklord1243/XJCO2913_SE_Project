@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 
-const BOOKINGS_ENDPOINT = 'http://127.0.0.1:3000/api/bookings/me';
+import { apiUrl } from '../utils/apiBase';
+
+const BOOKINGS_ENDPOINT = apiUrl('/api/bookings/me');
 
 function buildContractError(message) {
   return new Error(message);

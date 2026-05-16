@@ -14,11 +14,7 @@
 }
 
 .bookings-page .page-card--accent {
-  background: linear-gradient(
-    165deg,
-    var(--surface) 0%,
-    var(--surface-2) 100%
-  );
+  background: linear-gradient(165deg, var(--surface) 0%, var(--surface-2) 100%);
 }
 
 .bookings-page .page-card--wide {
@@ -281,6 +277,172 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.45;
+}
+
+/* Account type picker (register + profile) */
+.account-type-picker {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.account-type-picker__legend {
+  margin: 0 0 var(--space-1);
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.account-type-picker__hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.account-type-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: var(--space-3);
+}
+
+.account-type-picker__badge {
+  flex-shrink: 0;
+  padding: 0.125rem 0.5rem;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-radius: var(--radius-pill);
+}
+
+.auth-form .account-type-picker {
+  margin-top: var(--space-1);
+}
+
+.profile-summary {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.profile-summary__row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 10rem) 1fr;
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  margin: 0;
+}
+
+.profile-summary__row dt {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.profile-summary__row dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.profile-summary__row--pending dd {
+  color: var(--accent-strong);
+}
+
+/* Saved cards — simulator callout (readable layout) */
+.card-simulator-callout {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: var(--radius-md);
+}
+
+.card-simulator-callout__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.card-simulator-callout__lead {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.card-simulator-callout__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.card-simulator-callout__list li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.card-simulator-callout__list code {
+  display: block;
+  width: fit-content;
+  padding: 0.2rem 0.5rem;
+  font-size: var(--text-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.card-simulator-callout__list span {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.card-simulator-callout__footer {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 520px) {
+  .account-type-picker__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-summary__row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .card-simulator-callout__list code {
+    white-space: normal;
+    word-break: break-all;
+  }
 }
 
 /* Success banner (issue reported) */

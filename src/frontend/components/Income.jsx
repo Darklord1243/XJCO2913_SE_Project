@@ -19,7 +19,9 @@ import { useTheme } from '../hooks/useTheme';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
-const API_BASE = 'http://127.0.0.1:3000/api';
+import { apiUrl } from '../utils/apiBase';
+
+const API_BASE = apiUrl('/api');
 
 const PLAN_CONFIG = [
   { key: 'oneHour', label: '1 Hour' },
@@ -309,7 +311,11 @@ export default function Income({ session }) {
             <h2 className="admin-title">Weekly income by rental option</h2>
           </div>
 
-          <div className="income-segmented" role="group" aria-label="Chart view">
+          <div
+            className="income-segmented"
+            role="group"
+            aria-label="Chart view"
+          >
             <button
               type="button"
               className={`income-segmented__btn${viewMode === 'plan' ? ' is-active' : ''}`}

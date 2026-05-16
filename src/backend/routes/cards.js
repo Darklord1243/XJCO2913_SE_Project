@@ -4,6 +4,7 @@ const {
   detectCardBrand,
   extractLast4,
   hashCardPan,
+  isSimulatorSupportedPan,
   validatePaymentPayload,
 } = require('../booking-service');
 const { transactionMutex } = require('../database');
@@ -139,10 +140,17 @@ router.post('/cards', async (req, res) => {
       }
     });
 
-    return res.status(201).json({
+    const responseBody = {
       success: true,
       data: mapCardRow(created),
-    });
+    };
+
+    if (!isSimulatorSupportedPan(rawCardNumber)) {
+      responseBody.warning =
+        'Card saved, but only simulator test cards (4242 4242 4242 4242 or 4000 0000 0000 0002) can be used for bookings in this coursework build.';
+    }
+
+    return res.status(201).json(responseBody);
   } catch (error) {
     console.error('POST /api/cards failed:', error);
     return res.status(500).json({
@@ -175,6 +183,16 @@ router.get('/cards', async (req, res) => {
     });
   } catch (error) {
     console.error('GET /api/cards failed:', error);
+    const message = String(error?.message || '');
+
+    if (message.includes('no such table: stored_cards')) {
+      return res.status(503).json({
+        success: false,
+        error:
+          'Saved cards are not available on this database. Run npm run db:init or apply database/migrations/003_add_stored_cards.sql.',
+      });
+    }
+
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch saved cards.',

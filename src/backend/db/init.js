@@ -73,6 +73,38 @@ function closeDb() {
  * once: subsequent runs leave any existing admin (and password) untouched
  * so credentials cannot be silently reset by reseeding.
  */
+async function ensureWalkinUser() {
+  try {
+    const existing = await dbGet(
+      'SELECT id FROM users WHERE email = ? LIMIT 1;',
+      ['walkin@escooter.internal']
+    );
+
+    if (existing) {
+      console.log('Walk-in placeholder user already exists; skipping.');
+      return;
+    }
+
+    await dbRun(
+      `
+        INSERT INTO users (full_name, email, user_type, password_salt, password_hash)
+        VALUES (?, ?, 'walkin', ?, ?);
+      `,
+      [
+        'Walk-in Customer',
+        'walkin@escooter.internal',
+        'walkin',
+        '0000000000000000000000000000000000000000000000000000000000000000',
+      ]
+    );
+
+    console.log('Bootstrapped walk-in placeholder user (walkin@escooter.internal).');
+  } catch (error) {
+    console.error('Failed to bootstrap walk-in user:', error);
+    throw error;
+  }
+}
+
 async function ensureDefaultAdmin() {
   try {
     const adminEmail = (process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL)
@@ -132,6 +164,7 @@ async function initDatabase() {
     console.log('Database seed data inserted successfully.');
 
     await ensureDefaultAdmin();
+    await ensureWalkinUser();
     console.log('Database tables created and seeded successfully.');
   } catch (error) {
     console.error('Database initialization failed:', error);

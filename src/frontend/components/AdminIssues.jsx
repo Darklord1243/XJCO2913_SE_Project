@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, RotateCcw } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  RotateCcw,
+} from 'lucide-react';
 import { getSessionToken } from '../session';
 import { requestJson } from '../utils/api';
 
-const API_BASE = 'http://127.0.0.1:3000/api';
+import { apiUrl } from '../utils/apiBase';
+
+const API_BASE = apiUrl('/api');
 
 const STATUS_FILTERS = [
   { value: '', label: 'All' },
@@ -253,9 +261,17 @@ export default function AdminIssues({ session }) {
           </div>
         ) : issues.length === 0 ? (
           <div className="admin-empty-state">
-            <AlertTriangle size={48} className="admin-empty-state__icon" aria-hidden="true" />
-            <p className="admin-empty-state__title">No issues match the current filters</p>
-            <p className="admin-empty-state__sub">Try clearing status or priority filters.</p>
+            <AlertTriangle
+              size={48}
+              className="admin-empty-state__icon"
+              aria-hidden="true"
+            />
+            <p className="admin-empty-state__title">
+              No issues match the current filters
+            </p>
+            <p className="admin-empty-state__sub">
+              Try clearing status or priority filters.
+            </p>
           </div>
         ) : (
           <div className="issue-list">
@@ -264,10 +280,7 @@ export default function AdminIssues({ session }) {
               const isPriorityBusy = pendingId === `${issue.id}-priority`;
 
               return (
-                <article
-                  key={issue.id}
-                  className="issue-row"
-                >
+                <article key={issue.id} className="issue-row">
                   <div className="issue-row__header">
                     <div className="issue-row__heading">
                       <p className="fleet-card__label">Issue</p>
@@ -283,15 +296,21 @@ export default function AdminIssues({ session }) {
                   <div className="issue-row__meta">
                     <div className="fleet-card__stat">
                       <p className="fleet-card__label">Scooter</p>
-                      <p className="fleet-card__stat-value">{issue.scooterId}</p>
+                      <p className="fleet-card__stat-value">
+                        {issue.scooterId}
+                      </p>
                     </div>
                     <div className="fleet-card__stat">
                       <p className="fleet-card__label">Reporter</p>
-                      <p className="fleet-card__stat-value">User #{issue.userId}</p>
+                      <p className="fleet-card__stat-value">
+                        User #{issue.userId}
+                      </p>
                     </div>
                     <div className="fleet-card__stat">
                       <p className="fleet-card__label">Priority</p>
-                      <span className={`priority-badge priority-badge--${issue.priority}`}>
+                      <span
+                        className={`priority-badge priority-badge--${issue.priority}`}
+                      >
                         {toStatusLabel(issue.priority)}
                       </span>
                     </div>
@@ -303,9 +322,7 @@ export default function AdminIssues({ session }) {
                     </div>
                   </div>
 
-                  <p className="issue-row__description">
-                    {issue.description}
-                  </p>
+                  <p className="issue-row__description">{issue.description}</p>
 
                   <div className="issue-row__actions">
                     {issue.priority === 'low' ? (

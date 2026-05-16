@@ -141,11 +141,11 @@ function finish(db) {
     console.log('     node src/backend/server.js');
     console.log('');
     console.log('  2. Smoke test — public scooter list:');
-    console.log('     curl -s http://127.0.0.1:3000/api/scooters | head -c 200');
-    console.log('');
     console.log(
-      `  3. Restore backup if needed: cp ${backupPath} ${dbPath}`
+      '     curl -s http://127.0.0.1:3000/api/scooters | head -c 200'
     );
+    console.log('');
+    console.log(`  3. Restore backup if needed: cp ${backupPath} ${dbPath}`);
     console.log('');
   });
 }

@@ -7,7 +7,12 @@ const {
   validateRegistrationInput,
   verifyPassword,
 } = require('../auth-service');
-const { createUser, findUserByEmail } = require('../database');
+const { authenticateRequest } = require('../auth-middleware');
+const {
+  createUser,
+  findUserByEmail,
+  updateUserAccountType,
+} = require('../database');
 const { sendRegistrationEmail } = require('../email-service');
 const { isSelfRegistrableUserType } = require('../roles');
 
@@ -100,9 +105,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    if (
-      !verifyPassword(password, user.password_salt, user.password_hash)
-    ) {
+    if (!verifyPassword(password, user.password_salt, user.password_hash)) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password.',
@@ -122,6 +125,58 @@ router.post('/login', async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to log in.',
+    });
+  }
+});
+
+router.patch('/profile', async (req, res) => {
+  try {
+    const user = await authenticateRequest(req, res);
+
+    if (!user) {
+      return;
+    }
+
+    const rawUserType = String(req.body?.userType || '')
+      .trim()
+      .toLowerCase();
+
+    if (!rawUserType) {
+      return res.status(400).json({
+        success: false,
+        message: 'userType is required.',
+      });
+    }
+
+    if (!isSelfRegistrableUserType(rawUserType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account type must be standard, student, or senior.',
+      });
+    }
+
+    const updatedUser = await updateUserAccountType(user.id, rawUserType);
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User account not found.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Account type updated.',
+      data: {
+        token: createSessionToken(updatedUser),
+        user: toPublicUser(updatedUser),
+      },
+    });
+  } catch (error) {
+    console.error('PATCH /api/auth/profile failed:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update profile.',
     });
   }
 });
