@@ -239,13 +239,24 @@ export default function AdminIssues({ session }) {
         ) : null}
 
         {isLoading ? (
-          <p className="admin-loading">Loading issues...</p>
+          <>
+            <div className="skeleton-stack">
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+            </div>
+            <span className="sr-only">Loading issues</span>
+          </>
         ) : error ? (
           <div className="alert alert--error" role="alert">
             {error}
           </div>
         ) : issues.length === 0 ? (
-          <p className="admin-empty">No issues match the current filters.</p>
+          <div className="admin-empty-state">
+            <AlertTriangle size={48} className="admin-empty-state__icon" aria-hidden="true" />
+            <p className="admin-empty-state__title">No issues match the current filters</p>
+            <p className="admin-empty-state__sub">Try clearing status or priority filters.</p>
+          </div>
         ) : (
           <div className="issue-list">
             {issues.map((issue) => {

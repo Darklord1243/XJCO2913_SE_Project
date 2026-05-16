@@ -117,7 +117,7 @@ export default function ScooterMap() {
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, []);
+  }, [isLoading]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -171,25 +171,30 @@ export default function ScooterMap() {
       </header>
 
       {isLoading ? (
-        <p className="map-loading">Loading map data...</p>
-      ) : null}
-
-      {!isLoading && error ? (
-        <div className="alert alert--error" role="alert">
-          Could not load scooter data: {error}
+        <div className="map-container" aria-busy="true" aria-live="polite">
+          <div className="skeleton skeleton--map" aria-hidden="true" />
+          <span className="sr-only">Loading map data</span>
         </div>
-      ) : null}
+      ) : (
+        <>
+          {error ? (
+            <div className="alert alert--error" role="alert">
+              Could not load scooter data: {error}
+            </div>
+          ) : null}
 
-      <div className="map-legend" aria-label="Scooter status legend">
-        {LEGEND_STATUSES.map((status) => (
-          <span key={status} className="map-legend__item">
-            <span className={`map-legend__dot map-legend__dot--${status}`} />
-            {toStatusLabel(status)}
-          </span>
-        ))}
-      </div>
+          <div className="map-legend" aria-label="Scooter status legend">
+            {LEGEND_STATUSES.map((status) => (
+              <span key={status} className="map-legend__item">
+                <span className={`map-legend__dot map-legend__dot--${status}`} />
+                {toStatusLabel(status)}
+              </span>
+            ))}
+          </div>
 
-      <div ref={mapContainerRef} className="map-container" />
+          <div ref={mapContainerRef} className="map-container" />
+        </>
+      )}
     </section>
   );
 }

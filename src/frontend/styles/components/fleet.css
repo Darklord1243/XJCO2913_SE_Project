@@ -560,6 +560,33 @@
   gap: var(--space-4);
 }
 
+.fleet-page .page-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.fleet-page .page-empty-state__icon {
+  color: var(--text-subtle);
+}
+
+.fleet-page .page-empty-state__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.fleet-page .page-empty-state__sub {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  max-width: 360px;
+}
+
 @media (max-width: 720px) {
   .fleet-modal__payment-row {
     grid-template-columns: 1fr;

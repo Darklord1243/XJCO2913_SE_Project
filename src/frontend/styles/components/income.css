@@ -58,6 +58,11 @@
   font-weight: var(--weight-semibold);
 }
 
+.income-segmented__btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -196,6 +201,11 @@
 
 .income-chart__tooltip-line {
   display: block;
+}
+
+.income-chart-skeleton {
+  max-height: 240px;
+  overflow: hidden;
 }
 
 @media (max-width: 1023px) {

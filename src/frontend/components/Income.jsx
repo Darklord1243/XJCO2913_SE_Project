@@ -15,6 +15,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { getSessionToken } from '../session';
+import { useTheme } from '../hooks/useTheme';
 import { requestJson } from '../utils/api';
 import { formatCurrency } from '../utils/currency';
 
@@ -38,6 +39,7 @@ function readCssToken(name) {
 }
 
 function useChartTheme() {
+  const { theme } = useTheme();
   const [chartTheme, setChartTheme] = useState({
     accent: '',
     accentStrong: '',
@@ -54,7 +56,7 @@ function useChartTheme() {
       border: readCssToken('--border'),
       accentSoft: readCssToken('--accent-soft'),
     });
-  }, []);
+  }, [theme]);
 
   return chartTheme;
 }
@@ -309,7 +311,18 @@ export default function Income({ session }) {
         </div>
 
         {isLoading ? (
-          <p className="admin-loading">Loading income data...</p>
+          <>
+            <div className="admin-skeleton-kpi">
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+              <div className="skeleton skeleton--row" aria-hidden="true" />
+            </div>
+            <div className="income-chart-skeleton">
+              <div className="skeleton skeleton--map" aria-hidden="true" />
+            </div>
+            <span className="sr-only">Loading income data</span>
+          </>
         ) : error ? (
           <div className="alert alert--error" role="alert">
             {error}

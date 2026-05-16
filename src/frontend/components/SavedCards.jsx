@@ -101,7 +101,11 @@ export default function SavedCards({ session }) {
     return (
       <section className="bookings-page">
         <article className="page-card">
-          <p className="page-loading">Loading saved cards...</p>
+          <div className="skeleton-stack">
+            <div className="skeleton skeleton--row" aria-hidden="true" />
+            <div className="skeleton skeleton--row" aria-hidden="true" />
+          </div>
+          <span className="sr-only">Loading saved cards</span>
         </article>
       </section>
     );

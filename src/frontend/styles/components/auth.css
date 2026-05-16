@@ -208,6 +208,11 @@
   color: var(--text);
 }
 
+.auth-tabs__btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 /* Form */
 .auth-form {
   display: flex;

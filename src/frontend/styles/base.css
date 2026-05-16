@@ -93,3 +93,11 @@ body,
     background-color var(--motion-base) var(--easing-out),
     color var(--motion-base) var(--easing-out);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .surface,
+  .app-nav {
+    transition: none;
+  }
+}
