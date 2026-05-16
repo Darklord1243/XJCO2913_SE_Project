@@ -7,6 +7,7 @@
 @import url('./styles/components/fleet.css');
 @import url('./styles/components/bookings.css');
 @import url('./styles/components/admin.css');
+@import url('./styles/components/income.css');
 
 :root {
   color-scheme: light;
