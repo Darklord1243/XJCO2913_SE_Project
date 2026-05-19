@@ -17,6 +17,7 @@ The backend is structured as a set of small, purpose-driven modules:
 - **Entry point**: `src/backend/server.js` starts the HTTP listener and binds the Express app.
 - **App factory and middleware assembly**: `src/backend/app.js` constructs the Express app, configures global middleware, and mounts feature routers.
 - **Route modules**: router files under `src/backend/routes/` expose cohesive API surfaces (auth, scooters, bookings, issues).
+- **Cards**: `src/backend/routes/cards.js` — saved payment card CRUD with HMAC PAN hashing.
 - **Domain and validation services**: domain-specific logic (e.g., booking transaction logic; scooter payload validation) is isolated into service modules to support unit testing and reuse.
 - **Database connection and access layer**: `src/backend/db/connection.js` provides a singleton SQLite connection; `src/backend/database.js` provides reusable query helpers and serialised transaction support.
 
@@ -72,9 +73,10 @@ This ensures that authenticated users cannot manipulate other users’ bookings 
 
 ### 4.1 Consistent Resource-Oriented Endpoints
 The API is organised around cohesive resource categories:
-- **Auth**: registration and login.
+- **Auth**: registration, login, and profile account-type updates.
 - **Scooters**: public fleet listing; admin CRUD and soft-retire.
-- **Bookings**: create/list-own/cancel/extend; admin income analytics.
+- **Bookings**: create/list-own/cancel/extend; pricing preview with discount calculation;
+  weekly and daily income analytics; admin walk-in booking creation and filtered oversight.
 - **Issues**: authenticated submission; staff/admin triage with filterable listing and state transitions.
 
 Endpoints are designed to be predictable and narrow in responsibility, improving maintainability and testability.

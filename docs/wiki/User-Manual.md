@@ -50,9 +50,11 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
 3. Review marker colours to understand scooter status:
    1. Green = Available
    2. Blue = In Use
-   3. Amber = Reserved
+   3. Amber = Reserved (UI-only label for display purposes)
    4. Red = Maintenance
    5. Grey = Offline
+
+   Reserved is a UI convenience label, not a database status.
 4. Click a marker to open details (scooter ID, status, location, hourly rate).
 5. Refer to the legend above the map for status interpretation.
 
@@ -195,6 +197,16 @@ This manual explains how to use the E-Scooter Hire platform from both end-user a
 [Insert Screenshot of Admin Bookings Filters here]
 [Insert Screenshot of Admin Booking Summary Metrics here]
 [Insert Screenshot of Admin Booking Card Detail here]
+
+### 2.5) Create a Walk-in Booking
+1. Open **Bookings** in the admin navigation.
+2. Click **Book Walk-in**.
+3. Select a scooter and duration.
+4. Enter guest email (optional).
+5. Click **Create booking**.
+6. Verify the booking appears in the admin bookings list.
+
+[Insert Screenshot of Walk-in Booking Modal here]
 
 ### 3) View Weekly Income Analytics
 1. Open **Income** in admin navigation.

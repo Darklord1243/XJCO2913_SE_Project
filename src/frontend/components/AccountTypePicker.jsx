@@ -9,10 +9,16 @@ export default function AccountTypePicker({
   className = '',
 }) {
   return (
-    <fieldset className={`account-type-picker${className ? ` ${className}` : ''}`}>
+    <fieldset
+      className={`account-type-picker${className ? ` ${className}` : ''}`}
+    >
       <legend className="account-type-picker__legend">{legend}</legend>
       {hint ? <p className="account-type-picker__hint">{hint}</p> : null}
-      <div className="account-type-picker__grid" role="radiogroup" aria-label={legend}>
+      <div
+        className="account-type-picker__grid"
+        role="radiogroup"
+        aria-label={legend}
+      >
         {CUSTOMER_ACCOUNT_TYPES.map((option) => {
           const isSelected = value === option.value;
 
@@ -32,7 +38,10 @@ export default function AccountTypePicker({
                 <span className="plan-option__top">
                   <strong>{option.label}</strong>
                   {isSelected ? (
-                    <span className="account-type-picker__badge" aria-hidden="true">
+                    <span
+                      className="account-type-picker__badge"
+                      aria-hidden="true"
+                    >
                       Selected
                     </span>
                   ) : null}

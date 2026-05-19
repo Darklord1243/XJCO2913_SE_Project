@@ -1,30 +1,132 @@
 # E-Scooter Rental Platform
 
+Full-stack e-scooter rental platform (React + Express + SQLite) for XJCO2913 coursework.
+
 ## Tech Stack
-- **Frontend**: React
+
+- **Frontend**: React (Vite dev server)
 - **Backend**: Node.js & Express.js
 - **Database**: SQLite
 
+Sprint plans, traceability matrix, and user manual: [`docs/wiki/`](docs/wiki/).
+
+## Contents
+
+- [Quick Start](#quick-start) — install, environment, database, run app, tests
+- [Database Setup](#database-setup-sprint-1) — manual `sqlite3` commands and migrations
+- [Backend API](#backend-api) — endpoint reference
+- [Phase 1–4](#phase-1-advanced-business-logic--discounts) — business rules, issues, UX, admin
+- [Testing](#testing)
+- [Local Run Command Set](#local-run-command-set-copypaste) — copy/paste checklist for markers
+
+## Quick Start
+
+Get the app running in a few minutes. Phase-by-phase implementation notes and the full API reference are below.
+
+### Prerequisites
+
+- **Node.js** 18+ (20 LTS recommended) and **npm**
+- **sqlite3** CLI (optional; only needed for [verify queries](#verify-seeded-data) and [migrations](#database-migrations-existing-escooterdb-only) — not for initial setup)
+- Two terminal windows (backend + frontend)
+
+### 1. Install dependencies
+
+From the project root (the folder containing `package.json`):
+
+```bash
+npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` only if you need non-default values. The app runs without SMTP; email is optional (see [Optional email notifications](#optional-email-notifications)).
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PORT` | `3000` | Backend API port |
+| `DB_PATH` | `data/escooter.db` | SQLite database file |
+| `SMTP_USER` / `SMTP_PASS` | *(unset)* | QQ Mail (or other SMTP) for registration/booking emails |
+| `SMTP_HOST` / `SMTP_PORT` | *(unset)* | Alternative SMTP (e.g. local Mailpit); see `.env.example` |
+| `CARD_HASH_SECRET` | *(unset)* | Optional secret for saved-card PAN hashing |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | see [Phase 4](#default-administrator-bootstrap) | Override defaults when running `npm run db:init` |
+
+Never commit `.env` or real SMTP passwords.
+
+### 3. Initialize the database
+
+```bash
+npm run db:init
+```
+
+This creates `data/escooter.db`, applies `database/schema.sql` and `database/seed.sql`, and bootstraps the default **admin** and walk-in placeholder accounts.
+
+To reset an existing local database (stop the backend first to avoid `SQLITE_BUSY`):
+
+```bash
+npm run db:reset
+```
+
+### 4. Start the app (two terminals)
+
+**Terminal A — backend** (listens on port `3000`):
+
+```bash
+node src/backend/server.js
+```
+
+**Terminal B — frontend** (Vite dev server; open the URL shown in the terminal, usually http://localhost:5173):
+
+```bash
+npm run dev
+```
+
+The Vite dev server proxies `/api` to the backend on port 3000.
+
+### 5. Demo sign-in
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | `admin@escooter.local` | `AdminPass123!` |
+
+Register a rider via the UI for customer flows. For simulated card payment, use test PAN `4242 4242 4242 4242` (shown in the booking modal when running `npm run dev`).
+
+### 6. Run automated tests
+
+From the project root (backend does not need to be running; tests use `DB_PATH=:memory:`):
+
+```bash
+npm test
+```
+
+See [Testing](#testing) for suite layout and conventions.
+
+### Quick verify (with app running)
+
+With the backend up (step 4, Terminal A):
+
+```bash
+curl -s http://localhost:3000/api/scooters
+```
+
+---
+
 ## Database Setup (Sprint 1)
+
+**Fresh install:** use **`npm run db:init`** ([Quick Start](#quick-start)). It creates `data/`, applies `database/schema.sql` and `database/seed.sql`, and bootstraps the default admin and walk-in accounts. You do **not** need separate `mkdir` / `sqlite3` shell commands for normal setup.
+
+Schema and seed sources live under `database/`. Use the `sqlite3` CLI only for inspection queries below or for [migrations](#database-migrations-existing-escooterdb-only) on an older file.
+
 Backlog coverage:
 - **ID 4**: View hire options and cost
 - **ID 17**: Display e-scooter availability/details
 
-Schema and seed files are under `database/`.
-
-### Create and seed database
-Run the following commands from the project root:
-
-```bash
-mkdir -p data
-sqlite3 data/escooter.db < database/schema.sql
-sqlite3 data/escooter.db < database/seed.sql
-```
-
-If you are upgrading an older local database, see **Database migrations**
-immediately below before starting the backend.
-
 ### Verify seeded data
+
+Requires a database already created via `npm run db:init`:
 ```bash
 sqlite3 data/escooter.db "
 SELECT
@@ -56,29 +158,39 @@ New databases created from the current `database/schema.sql` do not
 need this step.
 
 ## Backend API
-Implemented endpoint:
-- `GET /api/scooters`
 
-### Optional email notifications
+### Complete API surface
 
-The backend can send SMTP email notifications after successful user
-registration, booking confirmation, and booking completion/cancellation.
-Email is optional: if SMTP credentials are not configured, the app logs
-nothing and continues normally.
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST | /api/auth/register | none | Self-registration (standard/student/senior) |
+| POST | /api/auth/login | none | Login |
+| PATCH | /api/auth/profile | user | Update account type |
+| GET | /api/scooters | none | Public fleet (excludes retired) |
+| GET | /api/admin/scooters | admin | Full fleet including retired |
+| POST | /api/scooters | admin | Create scooter + pricing |
+| PUT | /api/scooters/:scooterId | admin | Update scooter |
+| DELETE | /api/scooters/:scooterId | admin | Soft-retire |
+| GET | /api/bookings/me | user | Own bookings |
+| GET | /api/bookings | user | Alias for /me |
+| GET | /api/bookings/pricing-preview | user | Price quote with discount |
+| POST | /api/bookings | user | Create booking |
+| PATCH | /api/bookings/:bookingId/cancel | user | Cancel own booking |
+| PATCH | /api/bookings/:bookingId/extend | user | Extend own booking |
+| GET | /api/bookings/income/weekly | admin | Weekly income analytics |
+| GET | /api/bookings/income/daily | admin | Daily income breakdown |
+| POST | /api/admin/bookings | staff+ | Walk-in booking |
+| GET | /api/admin/bookings | admin | All bookings (filtered) |
+| POST | /api/issues | user | Report scooter fault |
+| GET | /api/issues | staff+ | List issues (filtered) |
+| PATCH | /api/issues/:id/priority | staff+ | Escalate/de-escalate |
+| PATCH | /api/issues/:id/status | staff+ | Resolve/reopen |
+| POST | /api/cards | user | Save payment card |
+| GET | /api/cards | user | List saved cards |
+| DELETE | /api/cards/:id | user | Remove saved card |
 
-For local development, copy `.env.example` to `.env` and fill in your
-own SMTP authorization code:
+### Example: `GET /api/scooters` response
 
-```bash
-SMTP_USER=2833085151@qq.com
-SMTP_PASS=your_qq_smtp_authorization_code
-SMTP_FROM="E-Scooter Rental Platform <2833085151@qq.com>"
-```
-
-Defaults target QQ Mail SMTP (`smtp.qq.com`, port `465`, secure TLS).
-Never commit a real `.env` file or SMTP authorization code.
-
-Expected response format:
 ```json
 {
   "success": true,
@@ -101,6 +213,28 @@ Expected response format:
   ]
 }
 ```
+
+### Optional email notifications
+
+The backend can send SMTP email notifications after successful user
+registration, booking confirmation, and booking completion/cancellation.
+Email is optional: if SMTP credentials are not configured, the app logs
+nothing and continues normally.
+
+Copy `.env.example` to `.env` and set your own SMTP credentials (example
+placeholders only):
+
+```bash
+SMTP_USER=your-email@example.com
+SMTP_PASS=your_smtp_authorization_code
+SMTP_FROM="E-Scooter Rental Platform <your-email@example.com>"
+```
+
+Defaults target QQ Mail SMTP (`smtp.qq.com`, port `465`, secure TLS) when
+`SMTP_HOST` is omitted. For a local catch-all inbox, use Mailpit — see
+comments in `.env.example`.
+
+Never commit a real `.env` file or SMTP authorization code.
 
 ## Phase 1: Advanced Business Logic & Discounts
 
@@ -126,7 +260,7 @@ CREATE TABLE IF NOT EXISTS users (
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   user_type TEXT NOT NULL DEFAULT 'standard' CHECK (
-    user_type IN ('standard', 'student', 'senior', 'staff', 'admin')
+    user_type IN ('standard', 'student', 'senior', 'staff', 'admin', 'walkin')
   ),
   password_salt TEXT NOT NULL,
   password_hash TEXT NOT NULL,
@@ -244,17 +378,17 @@ The Issues staff-management routes enforce role-based access control:
 
 Each route requires:
 1. A valid `Authorization` session token.
-2. The token's associated user record to have `user_type === 'staff'`.
+2. The token's associated user record to have user_type of staff or admin (both satisfy requireStaff).
 
 If a user is authenticated but not staff, the API returns `403 Forbidden`. This implements the project's non-functional security constraint that escalation and resolution controls are restricted to staff operators.
 
 ## Phase 3: Visual + Non-Functional Enhancements
 
-### ID 21: Graphical weekly income plotting (`/income`)
+### ID 21: Graphical weekly income plotting (`/admin/income`)
 
 The income dashboard now includes a graphical weekly income view built with the `recharts` library.
 
-- Route: `/income`
+- Route: `/admin/income`
 - Visualization: responsive bar chart (`BarChart`) for hire-plan income comparison
 - X-axis: hire plans (`1 Hour`, `4 Hours`, `1 Day`, `1 Week`)
 - Y-axis: income amount in GBP
@@ -347,6 +481,13 @@ Newly admin-gated and added endpoints:
 | `PUT /api/scooters/:scooterId`       | `admin`       | Update scooter status / location / pricing.    |
 | `DELETE /api/scooters/:scooterId`    | `admin`       | Soft-retire (`status -> retired`; no row delete). |
 | `GET /api/admin/bookings`            | `admin`       | List/filter all bookings across the platform.  |
+
+| `PATCH /api/auth/profile` | *(authenticated)* | Update own account type |
+| `POST /api/cards` | *(authenticated)* | Save a payment card |
+| `GET /api/cards` | *(authenticated)* | List saved cards |
+| `DELETE /api/cards/:id` | *(authenticated)* | Remove a saved card |
+
+`GET /api/bookings/income/daily` (admin-only) returns a per-day income breakdown for a Monday-based week. The admin Income UI exposes a **By Day** toggle that switches the chart between weekly plan totals and this daily view.
 
 The `POST /api/scooters` payload is identical to the `PUT` shape, with
 the request body validated by the shared
@@ -442,13 +583,16 @@ Customer mode (regular users):
 - Landing path: `/map`
 - Nav order: `Map`, `Fleet`, `My Bookings` (Map deliberately first
   for discovery; `Income` is removed from the rider surface).
+- Components: `ScooterMap.jsx`, `ScooterList.jsx`, `MyBookings.jsx`,
+  `SavedCards.jsx`, `Profile.jsx`, `ReportIssue.jsx`,
+  `AccountTypePicker.jsx`, `ThemeToggle.jsx`.
 
 Admin mode:
 - Landing path: `/admin/bookings`
 - Nav order: `Bookings`, `Fleet Manage`, `Issues`, `Income`
 - Components: `AdminBookings.jsx`, `AdminFleet.jsx`,
   `AdminIssues.jsx`, plus the existing `Income.jsx` reused under
-  `/admin/income`.
+  `/admin/income`, and `ThemeToggle.jsx`.
 - The `Fleet Manage` page loads data via **`useAdminScooters()`** calling
   `GET /api/admin/scooters` (not the public rider list). It exposes
   **Edit scooter** (`PUT /api/scooters/:scooterId`), **Add scooter**
@@ -563,30 +707,51 @@ modules. Likewise, scooter create/update validation cases belong in
 matching file under `tests/integration/`.
 
 ## Local Run Command Set (Copy/Paste)
-Put this command set in your terminal exactly as shown.
+
+See [Quick Start](#quick-start) for the minimal path. This section repeats the full command set for markers and demos.
 
 ### Where to run these commands
-- Run all commands from the project root: ` /home/lingod/XJCO2913_SE_Project `
-- Use separate terminals where noted (Terminal A / Terminal B)
 
-### 1) Install required runtime dependencies (project root)
+- Run all commands from the **project root** (the directory that contains `package.json` and this `README.md`)
+- Use **Terminal A** for the backend and **Terminal B** for the frontend (and optional curl/sqlite checks)
+
+### 1) Install dependencies (project root)
+
 ```bash
-npm install express sqlite3 react react-dom
+npm install
 ```
 
-### 2) Prepare the SQLite database (project root)
+### 2) Configure environment (project root)
+
 ```bash
-mkdir -p data
-sqlite3 data/escooter.db < database/schema.sql
-sqlite3 data/escooter.db < database/seed.sql
+cp .env.example .env
 ```
 
-### 3) Start backend API (Terminal A, project root)
+Edit `.env` only if you need custom `PORT`, `DB_PATH`, or SMTP settings.
+
+### 3) Prepare the SQLite database (project root)
+
+```bash
+npm run db:init
+```
+
+### 4) Start backend API (Terminal A, project root)
+
 ```bash
 node src/backend/server.js
 ```
 
-### 4) Verify API contract quickly (Terminal B, project root)
+### 5) Start frontend (Terminal B, project root)
+
+```bash
+npm run dev
+```
+
+Open the URL Vite prints (usually `http://localhost:5173`). API calls are proxied to `http://localhost:3000`.
+
+### 6) Verify API contract (Terminal B or C, project root)
+
+With the backend running:
 If `jq` is installed:
 ```bash
 curl -s http://localhost:3000/api/scooters | jq
@@ -597,7 +762,7 @@ Without `jq`:
 curl -s http://localhost:3000/api/scooters
 ```
 
-### 5) Verify seeded records from SQLite directly (Terminal B, project root)
+### 7) Verify seeded records from SQLite (project root)
 ```bash
 sqlite3 data/escooter.db "
 SELECT s.scooter_id,s.status,s.location_description,p.one_hour,p.four_hours,p.one_day,p.one_week
@@ -607,28 +772,23 @@ ORDER BY s.scooter_id;
 "
 ```
 
-### 6) Run formatter before commit (project root)
-```bash
-npm run format
-```
+### 8) Run automated tests (project root)
 
-### 7) Run unit tests (project root)
+Backend does not need to be running:
+
 ```bash
 npm test
 ```
 
-### 8) Bootstrap default administrator (project root, optional)
-The schema/seed commands in step 2 only create rider data. Run the
-init script to additionally seed the default administrator account
-documented in [Phase 4](#phase-4-admin-mode--ux-hardening):
+### 9) Run formatter before commit (project root, optional)
 
 ```bash
-node src/backend/db/init.js
-# or:
-npm run db:init
+npm run format
 ```
 
-To use custom admin credentials instead of the documented defaults:
+### 10) Custom administrator credentials (optional)
+
+`npm run db:init` (step 3) already creates the default admin when none exists. Re-run on a fresh database, or use env overrides:
 
 ```bash
 ADMIN_EMAIL=ops@example.com \
