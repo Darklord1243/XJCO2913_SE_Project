@@ -1,7 +1,7 @@
 # Contributing
 
 ## Commit Messages (Conventional Commits)
-This project **requires Conventional Commits** for every commit.
+This project **requires Conventional Commits** for every commit. (Enforced by project convention; no automated commit-lint hook is installed.)
 
 Use this format:
 - **type**: short, imperative summary (lowercase)

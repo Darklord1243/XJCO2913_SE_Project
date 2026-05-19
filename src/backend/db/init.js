@@ -98,7 +98,9 @@ async function ensureWalkinUser() {
       ]
     );
 
-    console.log('Bootstrapped walk-in placeholder user (walkin@escooter.internal).');
+    console.log(
+      'Bootstrapped walk-in placeholder user (walkin@escooter.internal).'
+    );
   } catch (error) {
     console.error('Failed to bootstrap walk-in user:', error);
     throw error;

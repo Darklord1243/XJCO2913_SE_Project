@@ -26,7 +26,10 @@ function main() {
   }
 
   if (fs.existsSync(dbPath)) {
-    const backupPath = dbPath.replace(/(\.db)$/, `.backup-reset-${Date.now()}.db`);
+    const backupPath = dbPath.replace(
+      /(\.db)$/,
+      `.backup-reset-${Date.now()}.db`
+    );
     console.log(`Backing up existing database to:\n  ${backupPath}`);
     fs.copyFileSync(dbPath, backupPath);
     fs.unlinkSync(dbPath);
@@ -50,9 +53,15 @@ function main() {
   console.log('\nDatabase reset complete.');
   console.log(`  Path:    ${dbPath}`);
   console.log('  Fleet:   13 scooters (ESC-001 … ESC-013) from seed.sql');
-  console.log('  Users:   cleared — default admin + walk-in placeholder re-created by db:init');
-  console.log('  Admin:   admin@escooter.local / AdminPass123! (unless ADMIN_* env overrides)');
-  console.log('\nRestart the backend, then register new customer accounts in the app.');
+  console.log(
+    '  Users:   cleared — default admin + walk-in placeholder re-created by db:init'
+  );
+  console.log(
+    '  Admin:   admin@escooter.local / AdminPass123! (unless ADMIN_* env overrides)'
+  );
+  console.log(
+    '\nRestart the backend, then register new customer accounts in the app.'
+  );
 }
 
 main();
